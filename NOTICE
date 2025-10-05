@@ -1,0 +1,45 @@
+=========================================================================
+== NOTICE file for the distribution of TARDIS.
+=========================================================================
+
+TARDIS
+Copyright npz35
+
+This project includes software developed by [npz35](https://github.com/npz35)
+
+This software is made available under the Apache License, Version 2.0.
+However, for **Non-public Use, Custom Licensing, or Derivative Works** that require terms different from the Apache 2.0 license (such as 
+the removal of the attribution or modified warranty), 
+**alternative licensing terms are available directly from the original author.**
+
+Please contact the author for details on obtaining a separate custom license:
+
+Author: npz35
+Contact: https://github.com/npz35
+
+**Preferred Method:** Please initiate contact by opening a new **GitHub Issue** titled **"Custom License Inquiry"** on this repository.
+
+=========================================================================
+
+This project includes software developed by the following organizations and individuals:
+
+Python Dependencies:
+
+| Package name  | License         | url                                               |
+| ------------- | --------------- | ------------------------------------------------- |
+| Flask         | BSD License     | <https://pypi.org/project/Flask/3.1.2/>           |
+| pypdf         | BSD License     | <https://pypi.org/project/pypdf/6.1.1/>           |
+| requests      | Apache 2.0      | <https://pypi.org/project/requests/2.32.5/>       |
+| Pillow        | MIT-CMU License | <https://pypi.org/project/pillow/11.3.0/>         |
+| pytest        | MIT License     | <https://pypi.org/project/pytest/8.4.2/>          |
+| psutil        | BSD License     | <https://pypi.org/project/psutil/7.1.0/>          |
+| reportlab     | BSD License     | <https://pypi.org/project/reportlab/4.4.4/>       |
+| pdfminer.six  | MIT License     | <https://pypi.org/project/pdfminer.six/20250506/> |
+
+Japanese Font:
+- IPAex明朝 (IPA Font License Agreement v1.0)
+
+Translation API:
+- llama.cpp (MIT License)
+
+For full license details, please refer to the respective project documentation and license files.
