@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>翻訳完了 - TARDIS</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="container">
+        <header class="app-header">
+            <div class="header-content">
+                <h1 class="app-title">TARDIS</h1>
+                <p class="app-subtitle">PDF翻訳Webアプリ</p>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <div class="result-container">
+                <div class="success-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                    </svg>
+                </div>
+
+                <h2 class="result-title">翻訳が完了しました！</h2>
+                <p class="result-message">
+                    PDFファイルの翻訳処理が正常に完了しました。<br>
+                    下のボタンから翻訳済みのPDFファイルをダウンロードできます。
+                </p>
+
+                <div class="download-section">
+                    <div class="file-info">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                            <line x1="16" y1="13" x2="8" y2="13"></line>
+                            <line x1="16" y1="17" x2="8" y2="17"></line>
+                            <polyline points="10 9 9 9 8 9"></polyline>
+                        </svg>
+                        <span class="filename">{{ filename }}</span>
+                    </div>
+
+                    <a href="{{ url_for('download_file', filename=filename) }}" class="download-button">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                        PDFファイルをダウンロード
+                    </a>
+                </div>
+
+                <div class="actions">
+                    <a href="{{ url_for('index') }}" class="back-button">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="19" y1="12" x2="5" y2="12"></line>
+                            <polyline points="12 19 5 12 12 5"></polyline>
+                        </svg>
+                        新しいファイルを翻訳する
+                    </a>
+                </div>
+            </div>
+
+            <div class="info-section">
+                <div class="info-card">
+                    <h3 class="info-title">翻訳について</h3>
+                    <ul class="info-list">
+                        <li>元のレイアウトを維持したまま翻訳されています</li>
+                        <li>日本語フォント（IPAex明朝）を使用しています</li>
+                        <li>翻訳結果は48時間後に自動的に削除されます</li>
+                    </ul>
+                </div>
+
+                <div class="info-card">
+                    <h3 class="info-title">注意事項</h3>
+                    <ul class="info-list">
+                        <li>翻訳の精度はAIモデルの性能に依存します</li>
+                        <li>特殊なフォントやレイアウトは正しく表示されない場合があります</li>
+                        <li>機密情報を含むPDFのアップロードはお控えください</li>
+                    </ul>
+                </div>
+            </div>
+        </main>
+
+        <footer class="app-footer">
+            <p>&copy; 2025 TARDIS - PDF翻訳Webアプリ</p>
+        </footer>
+    </div>
+
+    <script>
+        // Click event for the download button
+        document.querySelector('.download-button').addEventListener('click', function (e) {
+            // Add loading state to the button
+            const button = this;
+            const originalText = button.innerHTML;
+
+            button.disabled = true;
+            button.innerHTML = '<svg class="spinner" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 2v10l3.5 3.5"></path></svg> ダウンロード中...';
+
+            // Restore to original state after download completion
+            setTimeout(() => {
+                button.disabled = false;
+                button.innerHTML = originalText;
+            }, 3000);
+        });
+
+        // Filename copy functionality
+        document.querySelector('.filename').addEventListener('click', function () {
+            const filename = this.textContent;
+            navigator.clipboard.writeText(filename).then(() => {
+                // Feedback for successful copy
+                const originalText = this.textContent;
+                this.textContent = 'コピーしました！';
+                setTimeout(() => {
+                    this.textContent = originalText;
+                }, 2000);
+            }).catch(err => {
+                console.error('コピーに失敗しました:', err);
+            });
+        });
+    </script>
+</body>
+
+</html>

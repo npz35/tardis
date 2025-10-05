@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TARDIS - PDF翻訳Webアプリ</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="header-content">
+                <h1 class="logo">TARDIS</h1>
+                <p class="tagline">PDF翻訳Webアプリ</p>
+            </div>
+        </header>
+
+        <main class="main">
+            <div class="upload-section">
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                    </div>
+                    <h2>PDFファイルをアップロード</h2>
+                    <p class="upload-text">ドラッグ＆ドロップまたはクリックしてファイルを選択</p>
+                    <p class="upload-hint">対応形式: PDFファイル（最大16MB）</p>
+                    <input type="file" id="fileInput" accept=".pdf" style="display: none;">
+                    <button class="upload-button" id="selectButton">ファイルを選択</button>
+                </div>
+
+                <div class="file-info" id="fileInfo" style="display: none;">
+                    <div class="file-details">
+                        <div class="file-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
+                                <line x1="16" y1="13" x2="8" y2="13"></line>
+                                <line x1="16" y1="17" x2="8" y2="17"></line>
+                                <polyline points="10 9 9 9 8 9"></polyline>
+                            </svg>
+                        </div>
+                        <div class="file-meta">
+                            <p class="file-name" id="fileName"></p>
+                            <p class="file-size" id="fileSize"></p>
+                        </div>
+                        <button class="remove-button" id="removeButton">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                        </button>
+                    </div>
+                    <button class="translate-button" id="translateButton" style="display: none;">翻訳開始</button>
+                    <button class="figure-button" id="figureButton" style="display: none;">図表抽出</button>
+                    <button class="debug-button" id="debugButton" style="display: none;">デバッグ</button>
+                </div>
+            </div>
+
+            <div class="translation-section" id="translationSection" style="display: none;">
+                <div class="translation-header">
+                    <h2>翻訳処理中</h2>
+                    <div class="status-indicator">
+                        <div class="status-dot" id="statusDot"></div>
+                        <span id="statusText">準備中...</span>
+                    </div>
+                </div>
+
+                <div class="progress-container">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <div class="progress-text">
+                        <span id="progressText">0%</span>
+                    </div>
+                </div>
+
+                <div class="translation-steps">
+                    <div class="step" id="step1">
+                        <div class="step-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round">
+                                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                                <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                            </svg>
+                        </div>
+                        <div class="step-content">
+                            <h3>PDF解析</h3>
+                            <p>PDFファイルを解析してテキストを抽出中...</p>
+                            <div class="step-progress">0%</div>
+                        </div>
+                    </div>
+
+                    <div class="step" id="step2">
+                        <div class="step-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
+                                <line x1="16" y1="13" x2="8" y2="13"></line>
+                                <line x1="16" y1="17" x2="8" y2="17"></line>
+                                <polyline points="10 9 9 9 8 9"></polyline>
+                            </svg>
+                        </div>
+                        <div class="step-content">
+                            <h3>テキスト結合</h3>
+                            <p>抽出したテキストを意味単位で結合中...</p>
+                            <div class="step-progress">0%</div>
+                        </div>
+                    </div>
+
+                    <div class="step" id="step3">
+                        <div class="step-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="12" y1="8" x2="12" y2="12"></line>
+                                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                            </svg>
+                        </div>
+                        <div class="step-content">
+                            <h3>翻訳処理</h3>
+                            <p>AIによる翻訳処理中...</p>
+                            <div class="step-progress">0%</div>
+                        </div>
+                    </div>
+
+                    <div class="step" id="step4">
+                        <div class="step-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
+                                <line x1="16" y1="13" x2="8" y2="13"></line>
+                                <line x1="16" y1="17" x2="8" y2="17"></line>
+                                <polyline points="10 9 9 9 8 9"></polyline>
+                            </svg>
+                        </div>
+                        <div class="step-content">
+                            <h3>レイアウト調整</h3>
+                            <p>翻訳結果を元のレイアウトに配置中...</p>
+                            <div class="step-progress">0%</div>
+                        </div>
+                    </div>
+
+                    <div class="step" id="step5">
+                        <div class="step-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="7 10 12 15 17 10"></polyline>
+                                <line x1="12" y1="15" x2="12" y2="3"></line>
+                            </svg>
+                        </div>
+                        <div class="step-content">
+                            <h3>PDF生成</h3>
+                            <p>翻訳済みPDFを生成中...</p>
+                            <div class="step-progress">0%</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="result-section" id="resultSection" style="display: none;">
+                <div class="result-header">
+                    <h2>翻訳完了</h2>
+                    <div class="result-stats">
+                        <div class="stat-item">
+                            <span class="stat-label">処理時間</span>
+                            <span class="stat-value" id="processingTime">-</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">翻訳ユニット数</span>
+                            <span class="stat-value" id="translatedUnits">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="result-actions">
+                    <button class="download-button" id="downloadButton">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                        翻訳済みPDFをダウンロード
+                    </button>
+                    <button class="new-button" id="newButton">新しいファイルを翻訳</button>
+                </div>
+
+                <div class="result-preview">
+                    <h3>プレビュー</h3>
+                    <div class="preview-container">
+                        <iframe id="pdf-preview" style="width:100%; height:500px; border:none; display:none;"
+                            allow="fullscreen"></iframe>
+                        <div class="preview-placeholder">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
+                                <line x1="16" y1="13" x2="8" y2="13"></line>
+                            </svg>
+                        </div>
+                    </div>
+                    <a id="download-pdf" href="#" class="button" style="display:none;" download>翻訳済みPDFをダウンロード</a>
+                </div>
+        </main>
+
+        <script>
+            // Click event for the file selection button
+            document.getElementById('selectButton').addEventListener('click', function () {
+                document.getElementById('fileInput').click();
+            });
+
+            // Event when a file is selected
+            document.getElementById('fileInput').addEventListener('change', function (e) {
+                const file = e.target.files[0];
+                if (file) {
+                    // ファイル情報を表示する
+                    document.getElementById('fileName').textContent = file.name;
+                    document.getElementById('fileSize').textContent = formatFileSize(file.size);
+                    document.getElementById('fileInfo').style.display = 'block';
+
+                    // アップロードエリアを非表示にする
+                    document.getElementById('uploadArea').style.display = 'none';
+
+                    // 翻訳開始ボタンを表示する
+                    document.getElementById('translateButton').style.display = 'block';
+
+                    // 画像抽出ボタンも表示する
+                    document.getElementById('figureButton').style.display = 'block';
+                    document.getElementById('debugButton').style.display = 'block';
+
+                    // 選択されたファイルを保存する
+                    window.selectedFile = file;
+                }
+            });
+
+            // Click event for the translation start button
+            document.getElementById('translateButton').addEventListener('click', function () {
+                const file = window.selectedFile;
+                if (file) {
+                    // 翻訳セクションを表示する
+                    document.getElementById('translationSection').style.display = 'block';
+                    // 非表示
+                    document.getElementById('translateButton').style.display = 'none';
+                    document.getElementById('figureButton').style.display = 'none';
+                    document.getElementById('debugButton').style.display = 'none';
+                    // 翻訳処理を開始する
+                    startTranslationProcess(file);
+                } else {
+                    alert('選択されていません');
+                }
+            });
+
+            // Click event for the figure button
+            document.getElementById('figureButton').addEventListener('click', function () {
+                const file = window.selectedFile;
+                if (file) {
+                    // 翻訳セクションを表示する
+                    document.getElementById('translationSection').style.display = 'block';
+                    // 翻訳開始ボタンを非表示にする
+                    document.getElementById('translateButton').style.display = 'none';
+                    // 非表示
+                    document.getElementById('figureButton').style.display = 'none';
+                    document.getElementById('debugButton').style.display = 'none';
+                    // デバッグ処理を開始する
+                    startDebugProcess(file);
+                } else {
+                    alert('選択されていません');
+                }
+            });
+
+            // Click event for the debug button
+            document.getElementById('debugButton').addEventListener('click', function () {
+                const file = window.selectedFile;
+                if (file) {
+                    // 翻訳セクションを表示する
+                    document.getElementById('translationSection').style.display = 'block';
+                    // 翻訳開始ボタンを非表示にする
+                    document.getElementById('translateButton').style.display = 'none';
+                    // 非表示
+                    document.getElementById('figureButton').style.display = 'none';
+                    document.getElementById('debugButton').style.display = 'none';
+                    // デバッグ処理を開始する
+                    startDebugProcess(file);
+                } else {
+                    alert('選択されていません');
+                }
+            });
+
+            // Convert file size to a human-readable format
+            function formatFileSize(bytes) {
+                if (bytes === 0) return '0 Bytes';
+                const k = 1024;
+                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+            }
+
+            // Start translation process
+            function startTranslationProcess(file) {
+                // File validation
+                if (!file.name.toLowerCase().endsWith('.pdf')) {
+                    alert('PDFファイルのみ対応しています');
+                    resetUpload();
+                    return;
+                }
+
+                if (file.size > 16 * 1024 * 1024) {
+                    alert('ファイルサイズが16MBを超えています');
+                    resetUpload();
+                    return;
+                }
+
+                // Update status
+                updateStatus('処理中...', 'processing');
+                updateStep(1, 'active');
+                updateProgress(0, 1); // PDF解析開始で0%（ステップ1）
+
+                // Upload file
+                uploadFile(file);
+            }
+
+            // Start figure process (currently same as translation process)
+            function startDebugProcess(file) {
+                // File validation
+                if (!file.name.toLowerCase().endsWith('.pdf')) {
+                    alert('PDFファイルのみ対応しています');
+                    resetUpload();
+                    return;
+                }
+
+                if (file.size > 16 * 1024 * 1024) {
+                    alert('ファイルサイズが16MBを超えています');
+                    resetUpload();
+                    return;
+                }
+
+                // Update status
+                updateStatus('デバッグ処理中...', 'processing'); // デバッグ用にステータスを変更
+                updateStep(1, 'active');
+                updateProgress(0, 1); // PDF解析開始で0%（ステップ1）
+
+                // Upload file
+                uploadDebugFile(file); // デバッグ用のアップロード関数を呼び出す
+            }
+
+            // ファイルをアップロード
+            function uploadFile(file) {
+                const formData = new FormData();
+                formData.append('file', file);
+
+                // Reset progress bar
+                updateProgress(0, 0);
+
+                // Upload process
+                fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                })
+                    .then(response => {
+                        if (response.ok) {
+                            return response.json();
+                        } else {
+                            throw new Error('Upload failed');
+                        }
+                    })
+                    .then(data => {
+                        // Post-translation processing
+                        updateStep(5, 'completed');
+                        document.getElementById('step5').querySelector('p').textContent = '翻訳済みPDFの生成が完了しました。';
+                        updateStatus('翻訳完了', 'active');
+                        updateProgress(100, 5); // PDF生成完了で100%（ステップ5）
+
+                        // Display result section
+                        document.getElementById('resultSection').style.display = 'block';
+
+                        // Display preview and download link
+                        const pdfPreview = document.getElementById('pdf-preview');
+                        const downloadPdfLink = document.getElementById('download-pdf');
+                        const previewPlaceholder = document.querySelector('.preview-placeholder');
+
+                        if (data && data.filename) {
+                            const translatedPdfUrl = `/preview/${data.filename}`;
+                            pdfPreview.src = translatedPdfUrl;
+                            pdfPreview.style.display = 'block';
+                            previewPlaceholder.style.display = 'none'; // プレースホルダーを非表示
+                            downloadPdfLink.href = translatedPdfUrl;
+                            downloadPdfLink.download = data.filename;
+                            downloadPdfLink.style.display = 'block';
+
+                            // Enable download button and set filename
+                            document.getElementById('downloadButton').setAttribute('data-filename', data.filename);
+                            document.getElementById('downloadButton').disabled = false;
+                        } else {
+                            // Use default filename if filename cannot be obtained
+                            downloadPdfLink.href = '#';
+                            downloadPdfLink.download = 'translated_document.pdf';
+                            downloadPdfLink.style.display = 'block';
+
+                            // ダウンロードボタンを有効化し、デフォルトのファイル名を設定
+                            document.getElementById('downloadButton').setAttribute('data-filename', 'translated_document.pdf');
+                            document.getElementById('downloadButton').disabled = false;
+                        }
+
+                        // Display processing time and number of translated units
+                        if (data.processingTime) {
+                            document.getElementById('processingTime').textContent = data.processingTime;
+                        }
+                        if (data.translatedUnits) {
+                            document.getElementById('translatedUnits').textContent = data.translatedUnits;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        updateStatus('エラーが発生しました', 'error');
+                        alert('翻訳処理中にエラーが発生しました。もう一度お試しください。');
+                        resetUpload();
+                    });
+            }
+
+            // デバッグファイルをアップロード
+            function uploadDebugFile(file) {
+                const formData = new FormData();
+                formData.append('file', file);
+
+                // Reset progress bar
+                updateProgress(0, 0);
+
+                // Upload process (for figure)
+                fetch('/extract_figures', { // 図表抽出用のエンドポイントに変更
+                    method: 'POST',
+                    body: formData
+                })
+                    .then(response => {
+                        if (response.ok) {
+                            return response.json();
+                        } else {
+                            throw new Error('Debug upload failed');
+                        }
+                    })
+                    .then(data => {
+                        // Post-figure processing (currently same as translation)
+                        updateStep(5, 'completed');
+                        document.getElementById('step5').querySelector('p').textContent = 'デバッグ処理済みPDFの生成が完了しました。';
+                        updateStatus('デバッグ完了', 'active');
+                        updateProgress(100, 5); // PDF生成完了で100%（ステップ5）
+
+                        // Display result section
+                        document.getElementById('resultSection').style.display = 'block';
+
+                        // Display preview and download link
+                        const pdfPreview = document.getElementById('pdf-preview');
+                        const downloadPdfLink = document.getElementById('download-pdf');
+                        const previewPlaceholder = document.querySelector('.preview-placeholder');
+
+                        if (data && data.filename) {
+                            const translatedPdfUrl = `/preview/${data.filename}`;
+                            pdfPreview.src = translatedPdfUrl;
+                            pdfPreview.style.display = 'block';
+                            previewPlaceholder.style.display = 'none'; // プレースホルダーを非表示
+                            downloadPdfLink.href = translatedPdfUrl;
+                            downloadPdfLink.download = data.filename;
+                            downloadPdfLink.style.display = 'block';
+
+                            // Enable download button and set filename
+                            document.getElementById('downloadButton').setAttribute('data-filename', data.filename);
+                            document.getElementById('downloadButton').disabled = false;
+                        } else {
+                            // Use default filename if filename cannot be obtained
+                            downloadPdfLink.href = '#';
+                            downloadPdfLink.download = 'figure_document.pdf'; // デバッグ用のデフォルトファイル名
+                            downloadPdfLink.style.display = 'block';
+
+                            // ダウンロードボタンを有効化し、デフォルトのファイル名を設定
+                            document.getElementById('downloadButton').setAttribute('data-filename', 'figure_document.pdf');
+                            document.getElementById('downloadButton').disabled = false;
+                        }
+
+                        // Display processing time and number of translated units
+                        if (data.processingTime) {
+                            document.getElementById('processingTime').textContent = data.processingTime;
+                        }
+                        if (data.translatedUnits) {
+                            document.getElementById('translatedUnits').textContent = data.translatedUnits;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        updateStatus('エラーが発生しました', 'error');
+                        alert('デバッグ処理中にエラーが発生しました。もう一度お試しください。');
+                        resetUpload();
+                    });
+            }
+
+            // Update status
+            function updateStatus(text, status) {
+                document.getElementById('statusText').textContent = text;
+                const statusDot = document.getElementById('statusDot');
+                statusDot.className = 'status-dot';
+                if (status === 'processing') {
+                    statusDot.classList.add('processing');
+                } else if (status === 'active') {
+                    statusDot.classList.add('active');
+                }
+            }
+
+            // Update step
+            function updateStep(stepNumber, status) {
+                const step = document.getElementById('step' + stepNumber);
+                step.classList.remove('active', 'completed');
+                step.classList.add(status);
+            }
+
+            // Update progress bar
+            function updateProgress(percent, step) {
+                // Calculate progress per step
+                let overallProgress = 0;
+
+                if (step === 1) { // PDF解析
+                    overallProgress = percent * 0.2; // 全体の20%を占める
+                } else if (step === 2) { // テキスト結合
+                    overallProgress = 20 + (percent * 0.2); // 20%~40%
+                } else if (step === 3) { // 翻訳処理
+                    overallProgress = 40 + (percent * 0.3); // 40%~70%
+                } else if (step === 4) { // レイアウト調整
+                    overallProgress = 70 + (percent * 0.2); // 70%~90%
+                } else if (step === 5) { // PDF生成
+                    overallProgress = 90 + (percent * 0.1); // 90%~100%
+                }
+
+                // 全体の進捗を更新
+                document.getElementById('progressFill').style.width = overallProgress + '%';
+                document.getElementById('progressText').textContent = Math.round(overallProgress) + '%';
+
+                // ステップごとの進捗を更新
+                if (step > 0 && step <= 5) { // stepが1から5の範囲内でのみ更新
+                    const stepElement = document.getElementById('step' + step);
+                    if (stepElement) {
+                        const stepProgressText = stepElement.querySelector('.step-progress');
+                        if (stepProgressText) {
+                            stepProgressText.textContent = `${Math.round(percent)}%`;
+                        }
+                    }
+                }
+            }
+
+            // Reset upload
+            function resetUpload() {
+                document.getElementById('fileInput').value = '';
+                document.getElementById('fileInfo').style.display = 'none';
+                document.getElementById('uploadArea').style.display = 'block';
+                document.getElementById('translationSection').style.display = 'none';
+                document.getElementById('resultSection').style.display = 'none';
+            }
+
+            // File delete button
+            document.getElementById('removeButton').addEventListener('click', function () {
+                resetUpload();
+            });
+
+            // Download button
+            document.getElementById('downloadButton').addEventListener('click', function () {
+                const filename = this.getAttribute('data-filename');
+                if (filename) {
+                    // Execute download process
+                    downloadFile(filename);
+                } else {
+                    alert('ダウンロードするファイルがありません');
+                }
+            });
+
+            // ファイルをダウンロード
+            function downloadFile(filename) {
+                const downloadUrl = `/download/${filename}`;
+
+                // Create download link
+                const link = document.createElement('a');
+                link.href = downloadUrl;
+                link.download = filename;
+                link.target = '_blank';
+
+                // Start download
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+
+                // Disable button after download completion
+                this.disabled = true;
+                this.textContent = 'ダウンロード中...';
+
+                // Enable button after 3 seconds
+                setTimeout(() => {
+                    this.disabled = false;
+                    this.textContent = '翻訳済みPDFをダウンロード';
+                }, 3000);
+            }
+
+            // Translate new file button
+            document.getElementById('newButton').addEventListener('click', function () {
+                resetUpload();
+            });
+
+            // Drag and drop functionality
+            const uploadArea = document.getElementById('uploadArea');
+
+            uploadArea.addEventListener('dragover', function (e) {
+                e.preventDefault();
+                this.classList.add('dragover');
+            });
+
+            uploadArea.addEventListener('dragleave', function () {
+                this.classList.remove('dragover');
+            });
+
+            uploadArea.addEventListener('drop', function (e) {
+                e.preventDefault();
+                this.classList.remove('dragover');
+
+                const files = e.dataTransfer.files;
+                if (files.length) {
+                    const file = files[0];
+                    if (file.type === 'application/pdf') {
+                        // ファイル情報を表示
+                        document.getElementById('fileName').textContent = file.name;
+                        document.getElementById('fileSize').textContent = formatFileSize(file.size);
+                        document.getElementById('fileInfo').style.display = 'block';
+
+                        // アップロードエリアを非表示
+                        document.getElementById('uploadArea').style.display = 'none';
+
+                        // 翻訳セクションはまだ表示しない
+                        // document.getElementById('translationSection').style.display = 'block';
+
+                        // ファイル選択後に翻訳開始ボタンを表示する
+                        document.getElementById('translateButton').style.display = 'block';
+
+                        // 選択されたファイルを保存する
+                        window.selectedFile = file;
+                    } else {
+                        alert('PDFファイルのみ対応しています。');
+                    }
+                }
+            });
+        </script>
+</body>
+
+</html>
