@@ -1,0 +1,18 @@
+version: '3.8'
+services:
+  app:
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./app:/app/app
+      - ./logs:/app/logs
+      - ./outputs:/app/outputs
+      - ./static:/app/static
+      - ./templates:/app/templates
+      - ./tests:/app/tests
+      - ./uploads:/app/uploads
+    environment:
+      - FLASK_ENV=development
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
