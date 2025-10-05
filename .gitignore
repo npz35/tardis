@@ -1,0 +1,8 @@
+__pycache__
+static/fonts
+outputs/
+uploads/*.txt
+uploads/tmp*
+test_outputs/*.pdf
+tests/test_outputs/*.pdf
+*.zip
