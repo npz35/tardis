@@ -14,5 +14,6 @@ services:
       - ./uploads:/app/uploads
     environment:
       - FLASK_ENV=development
+      - PYTHONPATH=.
     extra_hosts:
       - "host.docker.internal:host-gateway"

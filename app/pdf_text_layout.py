@@ -16,7 +16,7 @@ from app.config import Config
 class PdfTextLayout:
     """PDF Text Layout Calculation and Drawing Class"""
 
-    def __init__(self, font_path: str = Config.JAPANESE_FONT_PATH, min_font_size: float = 8.0):
+    def __init__(self, font_path: str = Config.JAPANESE_FONT_PATH, min_font_size: float = 8.0, render_original_on_failure: bool = False):
         """
         Initialization
 
@@ -25,9 +25,10 @@ class PdfTextLayout:
             min_font_size: Minimum font size for translated Japanese text
         """
         self.logger: logging.Logger = logging.getLogger(__name__)
-        self.logger.debug(f"Function start: PdfTextLayout.__init__(font_path='{font_path}', min_font_size={min_font_size})")
+        self.logger.debug(f"Function start: PdfTextLayout.__init__(font_path='{font_path}', min_font_size={min_font_size}, render_original_on_failure={render_original_on_failure})")
         self.font_path: str = font_path
         self.min_font_size: float = min_font_size
+        self.render_original_on_failure: bool = render_original_on_failure
         self.japanese_font_name: str = "IPAexMincho" # A name for the registered font
 
         # Register Japanese font
@@ -144,7 +145,17 @@ class PdfTextLayout:
         optimal_font_size = self._adjust_font_size_to_fit(c, translated_text, width, height, font_size)
         
         c.setFont(self.japanese_font_name, optimal_font_size)
-        c.setFillColorRGB(0, 0, 0) # Black text
+        
+        if Config.ENABLE_FONT_COLOR_HIGHLIGHT:
+            original_font_name = font_info.get("font_name", "default")
+            # ex. 'XLDELO+CMMI10' -> 'CMMI10'
+            display_font_name = original_font_name.split('+')[-1] if '+' in original_font_name else original_font_name
+            
+            color = Config.FONT_COLOR_MAP.get(display_font_name, Config.FONT_COLOR_MAP["default"])
+            self.logger.debug(f"Setting font color for '{display_font_name}' to RGB{color}")
+            c.setFillColorRGB(*color)
+        else:
+            c.setFillColorRGB(0, 0, 0) # Black text
 
         lines = self.calculate_text_lines(c, translated_text, width, optimal_font_size)
         line_height = optimal_font_size * Config.LINE_HEIGHT_FACTOR

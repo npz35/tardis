@@ -20,6 +20,7 @@
 | FR-06 | テキストの上書き・レイアウト維持 | `pdf_document_manager.py` | 元の英語テキストの領域を白色の矩形で覆い隠し、取得した日本語翻訳文をその領域に挿入（上書き）する。 |
 | FR-07 | テキストのレイアウト調整 | `pdf_text_layout.py` | テキストの行分割計算、フォントサイズの自動調整、バウンディングボックスの拡張を行い、`pypdf` と `ReportLab` を使用して元のフォントサイズ、行間、字下げなどのレイアウト情報を可能な限り再現する。 |
 | FR-08 | PDFファイルの出力 | `pdf_document_manager.py` | 翻訳・上書き処理が完了したPDFファイルを生成し、指定されたパスに保存後、ユーザーにダウンロード可能にする。 |
+| FR-15 | 進捗通知 | `main.py` | PDF処理の進行状況（全体のパーセンテージと現在のステップ）をWebSocket (Flask-SocketIO) を介してリアルタイムでフロントエンドに通知する。 |
 
 #### `/extract_figures`: PDFファイルから図表を抽出
 
@@ -111,17 +112,20 @@
 
 **主要機能**:
 - Flaskアプリケーションの初期化
+- Flask-SocketIOの初期化
 - ルーティング設定
 - エラーハンドリング
 - ファイルアップロード/ダウンロード処理
 - PDFプレビュー処理
 - ヘルスチェック機能
 - 図表抽出機能
+- PDF処理の進捗状況をWebSocket (Flask-SocketIO) を介してフロントエンドに送信
 
 **設計**:
 - `create_app()`ファクトリ関数
 - 環境ごとの設定管理
 - 基本的なエラーハンドリング
+- `SocketIO` インスタンスの管理とイベントハンドリング
 
 ### 6.2 設定管理 (app/config.py)
 
@@ -240,13 +244,13 @@
 
 | カテゴリ | 技術 | 備考 |
 | -------- | ---- | ---- |
-| バックエンド | Python + Flask | Flask標準機能のみを使用し、最小限の依存関係で実装 |
+| バックエンド | Python + Flask + Flask-SocketIO | Flask標準機能とWebSocket通信のためのFlask-SocketIOを使用 |
 | PDF処理 | pdfminer.six / pypdf / ReportLab | テキスト抽出、座標取得、PDF編集機能 |
 | 翻訳API | llama.cpp | OpenAI互換API (http://localhost:11435)、認証なし |
-| フロントエンド | HTML/CSS/JavaScript | JavaScriptはFetch APIのみを使用 |
+| フロントエンド | HTML/CSS/JavaScript + Socket.IO | JavaScriptはFetch APIとSocket.IOクライアントライブラリを使用 |
 | フォント | IPAex明朝 (ipaexm.ttf) | 商用利用可能な無償フォント |
 | コンテナ化 | Docker Compose | 開発・テスト・デプロイ環境を統一 |
-| 非同期処理 | なし | まずはシンプルな同期処理で実装を試みる |
+| 非同期処理 | WebSocket (Flask-SocketIO) | PDF処理の進捗状況をリアルタイムでフロントエンドに通知するために使用 |
 
 ## 8. ディレクトリ構成 (Directory Structure)
 
@@ -299,7 +303,10 @@ tardis/
    - 結合された翻訳単位をllama.cpp APIに送信
    - 日本語翻訳文を取得
 
-5. **レイアウト調整とPDF上書き**
+5. **進捗通知**
+   - PDF処理の各ステップ（テキスト抽出、結合、翻訳、レイアウト調整、PDF生成）の進行状況を、全体のパーセンテージと現在のステップ番号としてWebSocket (Flask-SocketIO) を介してフロントエンドにリアルタイムで通知する。
+
+6. **レイアウト調整とPDF上書き**
    - 元の英語テキストの領域を削除
    - 日本語翻訳文を元のレイアウトに合わせて配置
    - IPAex明朝フォントを使用してPDFを更新

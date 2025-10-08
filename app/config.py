@@ -23,7 +23,7 @@ class Config:
     UPLOAD_FOLDER: str = os.path.join(BASE_DIR, 'uploads')
 
     # API settings
-    TRANSLATION_API_URL: str = os.environ.get('TRANSLATION_API_URL') or 'http://host.docker.internal:11435'
+    TRANSLATION_API_URL: str = os.environ.get('TRANSLATION_API_URL') or 'http://localhost:11435'
     TRANSLATION_MODEL: str = os.environ.get('TRANSLATION_MODEL') or 'default-model'
 
     # Japanese font settings
@@ -39,11 +39,35 @@ class Config:
     # PDF processing settings
     PDF_DPI: int = 300  # Resolution
     PDF_TEXT_THRESHOLD: int = 5  # Threshold between text blocks (pixels)
-    MAX_PDF_PAGES: int = 3 # Maximum number of pages to process
+    MAX_PDF_PAGES: int = int(os.environ.get('MAX_PDF_PAGES', 1)) # Maximum number of pages to process
+
+    # Font color highlighting settings
+    ENABLE_FONT_COLOR_HIGHLIGHT: bool = os.environ.get('ENABLE_FONT_COLOR_HIGHLIGHT', 'False').lower() == 'true'
+    FONT_COLOR_MAP: dict[str, tuple[float, float, float]] = {
+        "Helvetica": (0.0, 0.0, 0.0),              # Black
+        "CMMI10": (1.0, 0.0, 0.0),                 # Red
+        "SourceSansPro-Regular": (0.0, 0.0, 1.0),  # Blue
+        "SourceSansPro-Semibold": (0.0, 1.0, 0.0), # Green
+        "CMTI8": (1.0, 0.75, 0.0),
+        "CMBX10": (1.0, 0.5, 0.0),                 # Orange
+        "CMTT10": (1.0, 0.5, 0.5),
+        "CMR12": (0.75, 0.75, 0.0),                # Dark Yellow
+        "CMR8": (0.75, 0.0, 0.75),                 # Dark Magenta
+        "CMSY10": (0.75, 0.25, 0.25),              # Light Red
+        "CMR10": (0.5, 0.0, 0.5),                  # Purple
+        "CMEX10": (0.5, 0.5, 0.0),                 # Olive
+        "Martel-Regular": (0.5, 0.5, 0.5),
+        "CMSL10": (0.25, 0.25, 0.25),              # Dark Gray
+        "CMTI10": (0.25, 0.25, 0.75),              # Light Blue
+        "CMR17": (0.0, 0.75, 0.75),                # Dark Cyan
+        "CMBX12": (0.0, 0.5, 0.5),                 # Teal
+        "default": (0.0, 0.0, 0.0)                 # Default to black if font not in map
+    }
 
     # Translation settings
     TRANSLATION_MAX_LENGTH: int = 10000  # Maximum characters to translate at once
     TRANSLATION_TIMEOUT: int = 30  # Timeout (seconds)
+    RENDER_ORIGINAL_ON_TRANSLATION_FAILURE: bool = os.environ.get('RENDER_ORIGINAL_ON_TRANSLATION_FAILURE', 'False').lower() == 'true' # Render original text if translation fails
 
     # Layout adjustment settings
     FONT_SIZE_ADJUSTMENT_FACTOR: float = 1.2  # Japanese font size adjustment factor

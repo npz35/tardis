@@ -25,16 +25,17 @@ This project includes software developed by the following organizations and indi
 
 Python Dependencies:
 
-| Package name  | License         | url                                               |
-| ------------- | --------------- | ------------------------------------------------- |
-| Flask         | BSD License     | <https://pypi.org/project/Flask/3.1.2/>           |
-| pypdf         | BSD License     | <https://pypi.org/project/pypdf/6.1.1/>           |
-| requests      | Apache 2.0      | <https://pypi.org/project/requests/2.32.5/>       |
-| Pillow        | MIT-CMU License | <https://pypi.org/project/pillow/11.3.0/>         |
-| pytest        | MIT License     | <https://pypi.org/project/pytest/8.4.2/>          |
-| psutil        | BSD License     | <https://pypi.org/project/psutil/7.1.0/>          |
-| reportlab     | BSD License     | <https://pypi.org/project/reportlab/4.4.4/>       |
-| pdfminer.six  | MIT License     | <https://pypi.org/project/pdfminer.six/20250506/> |
+| Package name   | License         | url                                               |
+| -------------- | --------------- | ------------------------------------------------- |
+| Flask          | BSD License     | <https://pypi.org/project/Flask/3.1.2/>           |
+| Flask-SocketIO | MIT License     | <https://pypi.org/project/Flask-SocketIO/5.5.1/>  |
+| pypdf          | BSD License     | <https://pypi.org/project/pypdf/6.1.1/>           |
+| requests       | Apache 2.0      | <https://pypi.org/project/requests/2.32.5/>       |
+| Pillow         | MIT-CMU License | <https://pypi.org/project/pillow/11.3.0/>         |
+| pytest         | MIT License     | <https://pypi.org/project/pytest/8.4.2/>          |
+| psutil         | BSD License     | <https://pypi.org/project/psutil/7.1.0/>          |
+| reportlab      | BSD License     | <https://pypi.org/project/reportlab/4.4.4/>       |
+| pdfminer.six   | MIT License     | <https://pypi.org/project/pdfminer.six/20250506/> |
 
 Japanese Font:
 - IPAex明朝 (IPA Font License Agreement v1.0)

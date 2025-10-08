@@ -11,6 +11,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     curl \
     imagemagick \
+    iputils-ping \
     libmagickwand-dev \
     && rm -rf /var/lib/apt/lists/*
 
@@ -20,8 +21,6 @@ RUN python3 -m pip install --no-cache-dir -r requirements.txt
 
 # ポートの公開
 EXPOSE 5000
-
-ENV PYTHONPATH=.
 
 # コンテナ起動時のコマンド
 CMD ["python3", "app/main.py"]

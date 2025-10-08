@@ -85,7 +85,6 @@ class Translator:
             result["original_text"] = text
 
             if not text or not text.strip():
-                print("!!!!!!!!!!!!!!!!!!!!")
                 self.logger.warning(f"Empty text provided for translation at index {i}")
                 result["error"] = "Text to translate is empty"
                 results.append(result)
@@ -126,7 +125,10 @@ class Translator:
             self.logger.info("All texts were either empty, too long, or too short. No texts to send to LLM.")
             return results # Return results from initial validation
         start_time: float = time.time()
-        self.logger.info(f"Starting translation for {len(texts_to_translate)} texts.")
+
+        self.logger.debug("================ TRANSLATION TEXTS ================")
+        self.logger.debug(texts_to_translate)
+        self.logger.debug("===================================================")
 
         # Retry logic
         for attempt in range(max_retries):
@@ -223,18 +225,19 @@ class Translator:
                         result["error"] = f"An error occurred: {e}"
                         result["attempts"] = attempt + 1
             
-            if attempt < max_retries - 1:
-                self.logger.info(f"Retrying all translations (attempt {attempt + 1}/{max_retries})")
-                time.sleep(1)  # Wait 1 second and retry
-            else:
-                self.logger.error(f"All {max_retries} translation attempts failed.")
-                processing_time = time.time() - start_time
-                for result in results:
-                    if not result["success"]:
-                        result["error"] = f"Translation failed ({max_retries} attempts)"
-                        result["processing_time"] = processing_time / len(results) if results else 0.0
-                        result["attempts"] = max_retries
-                return results
+            if any(result["success"] is False for result in results):
+                if attempt < max_retries - 1:
+                    self.logger.info(f"Retrying all translations (attempt {attempt + 1}/{max_retries})")
+                    time.sleep(1)  # Wait 1 second and retry
+                else:
+                    self.logger.error(f"All {max_retries} translation attempts failed.")
+                    processing_time = time.time() - start_time
+                    for result in results:
+                        if not result["success"]:
+                            result["error"] = f"Translation failed ({max_retries} attempts)"
+                            result["processing_time"] = processing_time / len(results) if results else 0.0
+                            result["attempts"] = max_retries
+                    return results
 
         processing_time: float = time.time() - start_time
         for result in results:

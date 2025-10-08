@@ -18,7 +18,8 @@ from app.translator import Translator
 from app.pdf_document_manager import PdfDocumentManager
 from app.figure_extractor import FigureExtractor
 from app.utils import setup_logging
-from flask import Flask, render_template, request, jsonify, send_file, flash, redirect, url_for, send_from_directory, make_response, Response
+from flask import Flask, render_template, request, jsonify, send_file, flash, redirect, url_for, send_from_directory, make_response, Response, current_app
+from flask_socketio import SocketIO, emit
 from typing import List, Dict, Any, Union, Type, Tuple
 from pypdf import PdfReader
 
@@ -32,6 +33,8 @@ def create_app(config_class: Type[Config] = Config) -> Flask:
                 static_folder=static_folder,
                 template_folder=template_folder)
     app.config.from_object(config_class)
+    socketio = SocketIO(app) # Initialize SocketIO
+    app.extensions['socketio'] = socketio # Store socketio instance in app extensions
     
     app.logger.debug(f"Function start: create_app(config_class={config_class.__name__})")
 
@@ -88,6 +91,8 @@ def create_app(config_class: Type[Config] = Config) -> Flask:
             if file_length > Config.MAX_CONTENT_LENGTH:
                 raise RequestEntityTooLarge("File size exceeds 16MB")
 
+            app.logger.info(f"file_length: {file_length}")
+
             # Generate secure filename
             filename: str = secure_filename(file.filename)
             unique_id: str = str(uuid.uuid4())
@@ -95,12 +100,22 @@ def create_app(config_class: Type[Config] = Config) -> Flask:
             filepath = os.path.join(app.config['UPLOAD_FOLDER'], temp_filename)
 
             # Save the file
-            file.save(filepath)
-            app.logger.info(f"File uploaded: {filename} -> {temp_filename}")
+            try:
+                file.save(filepath)
+                if os.path.exists(filepath) and os.path.getsize(filepath) > 0:
+                    app.logger.info(f"{filename} was saved successfully: {filepath}")
+                else:
+                    raise IOError(f"Save completed but file does not exist or size is 0: {filepath}")
+            except Exception as e:
+                raise IOError(f"Failed to save {filepath}")
 
             # Start processing
             start_time: float = time.time()
             app.logger.info(f"Processing file: {filename}")
+
+            def progress_callback(percentage: int, step: int):
+                current_app.extensions['socketio'].emit('progress', {'percentage': percentage, 'step': step})
+                current_app.logger.info(f"Emitted progress: {percentage}% (Step: {step})")
 
             # Initialize PDF processing modules
             translator: Translator = Translator()
@@ -113,7 +128,8 @@ def create_app(config_class: Type[Config] = Config) -> Flask:
                 filepath,
                 output_path,
                 translator,
-                temp_filename
+                temp_filename,
+                progress_callback=progress_callback
             )
             processing_time = finish_time - start_time
 
@@ -465,10 +481,12 @@ def create_app(config_class: Type[Config] = Config) -> Flask:
 
     app.logger.debug("Function end: create_app (success)")
  
-    return app
+    return app, socketio
 
 # Run the application
 if __name__ == '__main__':
     # app = create_app()
-    app: Flask = create_app(DevelopmentConfig)
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app: Flask
+    socketio: SocketIO
+    app, socketio = create_app(DevelopmentConfig)
+    socketio.run(app, debug=True, host='0.0.0.0', port=5000, allow_unsafe_werkzeug=True)

@@ -19,10 +19,10 @@ PDF翻訳Webアプリ TARDIS（Translation And Reviewing Documents Interface Ser
 
 ## 技術スタック
 
-- **バックエンド**: Python, Flask
+- **バックエンド**: Python, Flask, Flask-SocketIO
 - **PDF処理**: pdfminer.six, pypdf, ReportLab
 - **翻訳API**: llama.cpp (OpenAI互換API)
-- **フロントエンド**: HTML, CSS, JavaScript
+- **フロントエンド**: HTML, CSS, JavaScript, Socket.IO
 - **コンテナ化**: Docker, Docker Compose
 - **テスト**: pytest
 
@@ -114,7 +114,7 @@ static/fonts/
 テストは Docker コンテナ上で行います。
 テストを実行するには、以下のコマンドを使用してください。
 ```shell
-docker-compose exec app pytest
+docker-compose exec -T app pytest
 ```
 
 ### API疎通テスト

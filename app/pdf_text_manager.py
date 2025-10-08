@@ -50,6 +50,7 @@ class PdfTextManager:
         )
 
         self.logger.info(f"Extracting text with positions from {pdf_path}")
+        all_font_names = set()
         extracted_data = []
         try:
             for page_layout in extract_pages(pdf_path, laparams=laparams):
@@ -92,6 +93,8 @@ class PdfTextManager:
                                         font_sizes.append(character.size)
                                         is_bold_flags.append("Bold" in character.fontname)
                                         is_italic_flags.append("Italic" in character.fontname)
+                                        if character.fontname:
+                                            all_font_names.add(character.fontname)
 
                                         self.logger.debug(f"LTChar text: {character.get_text()},\tfortname: {character.fontname},\tsize:{character.size}")
                                     else:
@@ -122,6 +125,7 @@ class PdfTextManager:
                             self.logger.debug(f"Appending extracted data: {text_data}")
                             extracted_data.append(text_data)
             self.logger.info(f"Successfully extracted text from {len(extracted_data)} elements.")
+            self.logger.info(f"All unique font names found: {sorted(list(all_font_names))}") # 収集したフォント名の一覧をログ出力するのだ
             self.logger.debug("Function end: extract_text_with_positions (success)")
             return extracted_data
         except Exception as e:

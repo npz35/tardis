@@ -26,14 +26,17 @@ class PdfDocumentManager:
         Initialization
         """
         self.pdf_text_manager = PdfTextManager()
-        self.pdf_text_layout = PdfTextLayout()
+        self.pdf_text_layout = PdfTextLayout(render_original_on_failure=Config.RENDER_ORIGINAL_ON_TRANSLATION_FAILURE)
         self.logger.debug("Function end: PdfDocumentManager.__init__ (success)")
 
     def create_translated_pdf(self, original_pdf_path: str,
                             output_path: str,
                             translator: Any, # Use Any for now, will refine later
-                            temp_filename: str) -> Tuple[str, float, List[Dict[str, Any]]]:
-        self.logger.debug(f"Function start: create_translated_pdf(original_pdf_path='{original_pdf_path}', output_path='{output_path}', temp_filename='{temp_filename}')")
+                            temp_filename: str,
+                            progress_callback: Any = None) -> Tuple[str, float, List[Dict[str, Any]]]:
+        self.logger.debug(f"Function start: create_translated_pdf(original_pdf_path='{original_pdf_path}', output_path='{output_path}', temp_filename='{temp_filename}', progress_callback={progress_callback})")
+        if progress_callback:
+            progress_callback(0, 0) # Start (0% overall, step 0 for initialization)
         """
         Create a translated PDF using alternative libraries (pdfminer.six, pypdf, ReportLab)
 
@@ -62,6 +65,8 @@ class PdfDocumentManager:
                 self.logger.info(f"Created output directory: {output_dir}")
 
             # 3. Extract text with positions using pdfminer.six
+            if progress_callback:
+                progress_callback(10, 1) # Text extraction started (10% overall, step 1)
             extracted_text_data = self.pdf_text_manager.extract_text_with_positions(original_pdf_path)
             self.logger.debug(f"Extracted {len(extracted_text_data)} text elements from original PDF.")
 
@@ -80,21 +85,61 @@ class PdfDocumentManager:
                 })
 
             # 4. Combine extracted text into translation units (similar to PdfProcessor.combine_text_blocks)
+            if progress_callback:
+                progress_callback(20, 2) # Combining translation units started (20% overall, step 2)
             translation_units: List[Dict[str, Any]] = self._combine_text_blocks(formatted_extracted_data)
             self.logger.info(f"Combined {len(translation_units)} translation units.")
 
             # 5. Translate text
             translated_units: List[Dict[str, Any]] = []
-            for i, unit in enumerate(translation_units):
-                self.logger.debug(f"Translating unit {i+1}/{len(translation_units)}")
-                translation_result: Dict[str, Any] = translator.translate_text(
-                    unit['text'],
-                    pdf_filename=temp_filename,
-                    page_number=unit['blocks'][0]['page'],
-                    block_id=str(unit['blocks'][0]['bbox'])
-                )
+            
+            # Group translation units by page
+            units_by_page: Dict[int, List[Dict[str, Any]]] = {}
+            for unit in translation_units:
+                page_num = unit['page']
+                if page_num not in units_by_page:
+                    units_by_page[page_num] = []
+                units_by_page[page_num].append(unit)
 
-                if translation_result.get("success"):
+            total_pages = len(units_by_page)
+            processed_pages = 0
+
+            for page_num in sorted(units_by_page.keys()):
+                page_units = units_by_page[page_num]
+                all_texts_on_page: List[str] = [unit['text'] for unit in page_units]
+                
+                self.logger.info(f"Attempting translation for page {page_num + 1}/{total_pages} with {len(all_texts_on_page)} units.")
+                if progress_callback:
+                    # Progress from 20% to 80% for translation
+                    progress = 20 + int(60 * (processed_pages / total_pages))
+                    progress_callback(progress, 3) # Translation in progress (step 3)
+
+                # Perform bulk translation for the current page
+                translated_results_for_page: List[Dict[str, Any]] = translator.translate_texts(all_texts_on_page)
+
+                # Process translated results and map them back to original units
+                for i, unit in enumerate(page_units):
+                    translation_result = translated_results_for_page[i]
+                    translated_text_to_render: str = ""
+
+                    if translation_result.get("success"):
+                        translated_text_to_render = translation_result["translated_text"]
+                    else:
+                        error_msg_from_translator: str = translation_result.get("error", "Unknown translation error")
+                        self.logger.error(f"Translation error for page {page_num}, unit {i}: {error_msg_from_translator}")
+                        self.logger.error(f"Original text: {unit['text']}")
+
+                        if self.pdf_text_layout.render_original_on_failure:
+                            self.logger.info(f"Translation failed, but RENDER_ORIGINAL_ON_TRANSLATION_FAILURE is True. Rendering original text for unit {i}.")
+                            translated_text_to_render = unit['text']
+                            # Mark as success for rendering purposes, but keep original error info
+                            translation_result["success"] = True
+                        else:
+                            self.logger.debug("Function end: create_translated_pdf (failed - translation error)")
+                            raise Exception(f"Translation failed: {error_msg_from_translator}")
+                        
+                    translation_result["translated_text"] = translated_text_to_render
+
                     # Convert the unit to the format expected by the PDF drawing logic
                     translated_unit = {
                         'original': {
@@ -108,16 +153,20 @@ class PdfDocumentManager:
                     }
                     self.logger.debug(f"Appending translated unit: {translated_unit}")
                     translated_units.append(translated_unit)
-                else:
-                    error_msg_from_translator: str = translation_result.get("error", "Unknown translation error")
-                    self.logger.error(f"Translation error for unit {i}: {error_msg_from_translator}")
-                    self.logger.error(f"Original text: {unit['text']}")
-                    self.logger.debug("Function end: create_translated_pdf (failed - translation error)")
-                    raise Exception(f"Translation failed: {error_msg_from_translator}")
+                
+                processed_pages += 1
+
+            self.logger.info(f"Translated {len(translated_units)} units across {total_pages} pages.")
+            if progress_callback:
+                progress_callback(80, 3) # Translation completed (80% overall, step 3)
 
             self.logger.info(f"Translated {len(translated_units)} units.")
+            if progress_callback:
+                progress_callback(80, 3) # Translation completed (80% overall, step 3)
 
             # 6. Create a transparent PDF with translated text using ReportLab
+            if progress_callback:
+                progress_callback(80, 4) # PDF creation and merging started (80% overall, step 4)
             output_pdf_writer = pypdf.PdfWriter()
             original_pdf_reader = pypdf.PdfReader(original_pdf_path)
             num_pages = len(original_pdf_reader.pages)
@@ -166,8 +215,20 @@ class PdfDocumentManager:
             self.logger.info(f"Merged PDFs and saved final translated PDF to {output_path}")
 
             self.logger.info(f"Successfully completed translated PDF creation process for {output_path}.")
+            if progress_callback:
+                progress_callback(100, 5) # Completed (100% overall, step 5)
             self.logger.debug("Function end: create_translated_pdf (success)")
             return output_path, time.time(), translated_units
+        except FileNotFoundError as e:
+            self.logger.error(f"FileNotFoundError in create_translated_pdf: {str(e)}")
+            self.logger.debug("Function end: create_translated_pdf (failed - file not found)")
+            raise
+        except Exception as e:
+            error_msg: str = f"An unexpected error occurred during PDF translation: {str(e)}"
+            self.logger.error(f"Exception in create_translated_pdf: {error_msg}")
+            self.logger.debug(f"Detailed error information:\n{traceback.format_exc()}")
+            self.logger.debug("Function end: create_translated_pdf (failed - unexpected error)")
+            raise Exception(error_msg)
 
         except FileNotFoundError as e:
             self.logger.error(str(e))
