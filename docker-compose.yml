@@ -14,6 +14,14 @@ services:
       - ./uploads:/app/uploads
     environment:
       - FLASK_ENV=development
+      - LOG_LEVEL=DEBUG
+      - TRANSLATION_API_URL=http://host.docker.internal:11435
+      - TEXT_EXTRACTION_METHOD=pdfplumber
+      - RENDER_ORIGINAL_ON_TRANSLATION_FAILURE=true
+      - ENABLE_FONT_COLOR_HIGHLIGHT=true
+      - MAX_PDF_PAGES=3
+      - TRANSLATION_MAX_UNIT=100
+      - TRANSLATION_MAX_UNIT_PER_REQUEST=5
       - PYTHONPATH=.
     extra_hosts:
       - "host.docker.internal:host-gateway"

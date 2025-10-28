@@ -11,6 +11,7 @@ from reportlab.pdfgen import canvas
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from app.config import Config
+from app.data_model import FontInfo
 
 
 class PdfTextLayout:
@@ -48,8 +49,8 @@ class PdfTextLayout:
             raise RuntimeError(error_msg)
         self.logger.debug("Function end: PdfTextLayout.__init__ (success)")
 
-    def calculate_text_lines(self, c: canvas.Canvas, text: str, max_width: float, font_size: float) -> List[str]:
-        self.logger.debug(f"Function start: calculate_text_lines(text_len={len(text)}, max_width={max_width}, font_size={font_size})")
+    def _calculate_text_lines(self, c: canvas.Canvas, text: str, max_width: float, font_size: float) -> List[str]:
+        self.logger.debug(f"Function start: _calculate_text_lines(text_len={len(text)}, max_width={max_width}, font_size={font_size})")
         """
         Splits text into lines based on max_width and font_size, considering Japanese character width.
 
@@ -111,10 +112,10 @@ class PdfTextLayout:
             self.logger.debug(f"Appending draw line: {current_line}")
             draw_lines.append(current_line)
          
-        self.logger.debug(f"Function end: calculate_text_lines (success) -> {len(draw_lines)} lines")
+        self.logger.debug(f"Function end: _calculate_text_lines (success) -> {len(draw_lines)} lines")
         return draw_lines
 
-    def draw_translated_text(self, c: canvas.Canvas, translated_text: str, bbox: Tuple[float, float, float, float], font_info: Dict[str, Any]) -> None:
+    def draw_translated_text(self, c: canvas.Canvas, translated_text: str, bbox: Tuple[float, float, float, float], font_info: FontInfo) -> None:
         self.logger.debug(f"Function start: draw_translated_text(translated_text_len={len(translated_text)}, bbox={bbox}, font_info={font_info})")
         """
         Draws translated text onto a ReportLab canvas within a specified bounding box.
@@ -123,7 +124,7 @@ class PdfTextLayout:
             c: The ReportLab canvas object.
             translated_text: The text to draw.
             bbox: The bounding box (x0, y0, x1, y1) for text placement.
-            font_info: Dictionary containing font_size and font_name.
+            font_info: font information.
         """
         self.logger.info(f"Drawing translated text: '{translated_text[:50]}...' into bbox {bbox}")
         x0, y0, x1, y1 = bbox
@@ -135,7 +136,7 @@ class PdfTextLayout:
             self.logger.debug("Function end: draw_translated_text (failed - invalid bbox)")
             raise ValueError("Invalid bounding box dimensions for drawing text.")
 
-        font_size = font_info.get("font_size", 12.0)
+        font_size = font_info.size
         if font_size <= 0:
             self.logger.error(f"Invalid font size: {font_size}")
             self.logger.debug("Function end: draw_translated_text (failed - invalid font size)")
@@ -147,7 +148,7 @@ class PdfTextLayout:
         c.setFont(self.japanese_font_name, optimal_font_size)
         
         if Config.ENABLE_FONT_COLOR_HIGHLIGHT:
-            original_font_name = font_info.get("font_name", "default")
+            original_font_name = font_info.name
             # ex. 'XLDELO+CMMI10' -> 'CMMI10'
             display_font_name = original_font_name.split('+')[-1] if '+' in original_font_name else original_font_name
             
@@ -157,7 +158,7 @@ class PdfTextLayout:
         else:
             c.setFillColorRGB(0, 0, 0) # Black text
 
-        lines = self.calculate_text_lines(c, translated_text, width, optimal_font_size)
+        lines = self._calculate_text_lines(c, translated_text, width, optimal_font_size)
         line_height = optimal_font_size * Config.LINE_HEIGHT_FACTOR
 
         # Start from the top of the bbox, adjusting for ReportLab's y-origin (bottom-left)
@@ -185,7 +186,7 @@ class PdfTextLayout:
         for _ in range(10): # Try up to 10 iterations for adjustment
             # Temporarily set font for accurate width calculation
             c.setFont(self.japanese_font_name, current_font_size)
-            lines = self.calculate_text_lines(c, text, max_width, current_font_size)
+            lines = self._calculate_text_lines(c, text, max_width, current_font_size)
             total_text_height = len(lines) * (current_font_size * Config.LINE_HEIGHT_FACTOR)
 
             max_line_width = 0.0
@@ -231,8 +232,8 @@ class PdfTextLayout:
         self.logger.debug(f"Drew white rectangle at {bbox}")
         self.logger.debug("Function end: draw_white_rectangle (success)")
 
-    def rects_overlap(self, rect1: Tuple[float, float, float, float], rect2: Tuple[float, float, float, float]) -> bool:
-        self.logger.debug(f"Function start: rects_overlap(rect1={rect1}, rect2={rect2})")
+    def _rects_overlap(self, rect1: Tuple[float, float, float, float], rect2: Tuple[float, float, float, float]) -> bool:
+        self.logger.debug(f"Function start: _rects_overlap(rect1={rect1}, rect2={rect2})")
         """
         Determines if two rectangles overlap.
 
@@ -245,18 +246,18 @@ class PdfTextLayout:
         """
         # Check if rectangles overlap on X axis
         if rect1[2] < rect2[0] or rect2[2] < rect1[0]:
-            self.logger.debug("Function end: rects_overlap (no overlap on X)")
+            self.logger.debug("Function end: _rects_overlap (no overlap on X)")
             return False
         # Check if rectangles overlap on Y axis
         if rect1[3] < rect2[1] or rect2[3] < rect1[1]:
-            self.logger.debug("Function end: rects_overlap (no overlap on Y)")
+            self.logger.debug("Function end: _rects_overlap (no overlap on Y)")
             return False
         is_overlap = True
-        self.logger.debug(f"Function end: rects_overlap (success) -> {is_overlap}")
+        self.logger.debug(f"Function end: _rects_overlap (success) -> {is_overlap}")
         return is_overlap
 
-    def expand_bbox(self, bbox: Tuple[float, float, float, float]) -> Tuple[float, float, float, float]:
-        self.logger.debug(f"Function start: expand_bbox(bbox={bbox})")
+    def _expand_bbox(self, bbox: Tuple[float, float, float, float]) -> Tuple[float, float, float, float]:
+        self.logger.debug(f"Function start: _expand_bbox(bbox={bbox})")
         """
         Expands a bounding box.
 
@@ -268,5 +269,5 @@ class PdfTextLayout:
         """
         x0, y0, x1, y1 = bbox
         expanded_bbox = (x0 - Config.BBOX_EXPAND_MARGIN, y0 - Config.BBOX_EXPAND_MARGIN, x1 + Config.BBOX_EXPAND_MARGIN, y1 + Config.BBOX_EXPAND_MARGIN)
-        self.logger.debug(f"Function end: expand_bbox (success) -> {expanded_bbox}")
+        self.logger.debug(f"Function end: _expand_bbox (success) -> {expanded_bbox}")
         return expanded_bbox

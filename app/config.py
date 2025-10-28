@@ -41,6 +41,9 @@ class Config:
     PDF_TEXT_THRESHOLD: int = 5  # Threshold between text blocks (pixels)
     MAX_PDF_PAGES: int = int(os.environ.get('MAX_PDF_PAGES', 1)) # Maximum number of pages to process
 
+    # Text extraction settings
+    TEXT_EXTRACTION_METHOD: str = os.environ.get('TEXT_EXTRACTION_METHOD') or 'pdfplumber' # Method for text extraction (e.g., 'pdfminer', 'ocr', 'hybrid_pdfminer_pypdf')
+
     # Font color highlighting settings
     ENABLE_FONT_COLOR_HIGHLIGHT: bool = os.environ.get('ENABLE_FONT_COLOR_HIGHLIGHT', 'False').lower() == 'true'
     FONT_COLOR_MAP: dict[str, tuple[float, float, float]] = {
@@ -67,6 +70,8 @@ class Config:
     # Translation settings
     TRANSLATION_MAX_LENGTH: int = 10000  # Maximum characters to translate at once
     TRANSLATION_TIMEOUT: int = 30  # Timeout (seconds)
+    TRANSLATION_MAX_UNIT: int | None = int(os.environ.get('TRANSLATION_MAX_UNIT')) if os.environ.get('TRANSLATION_MAX_UNIT') else None # Maximum number of translation units per create_translated_pdf execution
+    TRANSLATION_MAX_UNIT_PER_REQUEST: int | None = int(os.environ.get('TRANSLATION_MAX_UNIT_PER_REQUEST')) if os.environ.get('TRANSLATION_MAX_UNIT_PER_REQUEST') else None # Maximum number of translation units per request
     RENDER_ORIGINAL_ON_TRANSLATION_FAILURE: bool = os.environ.get('RENDER_ORIGINAL_ON_TRANSLATION_FAILURE', 'False').lower() == 'true' # Render original text if translation fails
 
     # Layout adjustment settings
@@ -81,13 +86,14 @@ class Config:
     VERTICAL_DIST_FACTOR: float = 2.0
     HORIZONTAL_DIST_FACTOR: float = 2.0
 
+    # Default font size for cases where font size cannot be extracted
+    DEFAULT_FONT_SIZE: float = 12.0
+    MIN_FONT_SIZE: float = 8.0 # Minimum font size for translated Japanese text
+
 class DevelopmentConfig(Config):
     """Development environment settings"""
-    DEBUG: bool = True
+    DEBUG: bool = False
     TESTING: bool = False
-
-    # Output more detailed logs in development environment
-    LOG_LEVEL = 'DEBUG'
 
 class ProductionConfig(Config):
     """Production environment settings"""

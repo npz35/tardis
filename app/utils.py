@@ -14,12 +14,13 @@ import json
 from pypdf import PdfReader
 from app.config import Config
 
-def setup_logging(log_level: str = "INFO") -> None:
+def setup_logging(log_level: str = "INFO", log_file_path: str = Config.LOG_FILE) -> None:
     """
     Sets up logging.
 
     Args:
         log_level: Log level
+        log_file_path: Path to the log file
     """
     # Set log level
     level: int = getattr(logging, log_level.upper(), logging.INFO)
@@ -29,10 +30,17 @@ def setup_logging(log_level: str = "INFO") -> None:
         level=level,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         handlers=[
-            logging.FileHandler(Config.LOG_FILE), # Use Config.LOG_FILE
+            logging.FileHandler(log_file_path), # Use the provided log_file_path
             logging.StreamHandler()
         ]
     )
+
+    logging.getLogger('pdfminer.psparser').setLevel(logging.INFO)
+    logging.getLogger('pdfminer.pdfdocument').setLevel(logging.INFO)
+    logging.getLogger('pdfminer.pdfpage').setLevel(logging.INFO)
+    logging.getLogger('pdfminer.pdfinterp').setLevel(logging.INFO)
+    logging.getLogger('pdfminer.pdfparser').setLevel(logging.INFO)
+    logging.getLogger('pdfminer.cmapdb').setLevel(logging.INFO)
 
 def ensure_directory(path: str) -> bool:
     logging.debug(f"Function start: ensure_directory(path='{path}')")
@@ -99,37 +107,37 @@ def cleanup_old_files(directory: str, days: int = 2) -> int:
         logging.debug("Function end: cleanup_old_files (failure)")
         return 0
 
-def generate_unique_filename(original_filename: str, prefix: str = "") -> str:
-    logging.debug(f"Function start: generate_unique_filename(original_filename='{original_filename}', prefix='{prefix}')")
+def generate_unique_directory_name(base_name: str, prefix: str = "") -> str:
+    logging.debug(f"Function start: generate_unique_directory_name(base_name='{base_name}', prefix='{prefix}')")
     """
-    Generates a unique filename.
+    Generates a unique directory name.
 
     Args:
-        original_filename: Original filename
+        base_name: Base name for the directory
         prefix: Prefix
 
     Returns:
-        Unique filename
+        Unique directory name
     """
+    # Generate UUID
+    unique_id: str = str(uuid.uuid4())[:8]
+
     try:
-        # Get file extension
-        name: str
-        ext: str
-        name, ext = os.path.splitext(original_filename)
+        # Sanitize base_name to ensure it's a valid directory name
+        sanitized_base_name: str = re.sub(r'[<>:"/\\|?*\s]', '_', base_name).strip()
+        if not sanitized_base_name:
+            sanitized_base_name = "unnamed_directory"
 
-        # Generate UUID
-        unique_id: str = str(uuid.uuid4())[:8]
+        # Generate new directory name
+        new_directory_name: str = f"{prefix}{sanitized_base_name}_{unique_id}"
 
-        # Generate new filename
-        new_filename: str = f"{prefix}{name}_{unique_id}{ext}"
-
-        logging.debug("Function end: generate_unique_filename (success)")
-        return new_filename
+        logging.debug("Function end: generate_unique_directory_name (success)")
+        return new_directory_name
 
     except Exception as e:
-        logging.error(f"Failed to generate unique filename: {str(e)}")
-        logging.debug("Function end: generate_unique_filename (failure)")
-        return original_filename
+        logging.error(f"Failed to generate unique directory name: {str(e)}")
+        logging.debug("Function end: generate_unique_directory_name (failure)")
+        return base_name
 
 def validate_pdf_file(file_path: str) -> Tuple[bool, str]:
     logging.debug(f"Function start: validate_pdf_file(file_path='{file_path}')")

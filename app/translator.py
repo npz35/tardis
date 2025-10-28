@@ -18,7 +18,7 @@ from app.llm import LLM
 class Translator:
     """Translation API Integration Module - Handles API integration with llama.cpp."""
 
-    def __init__(self, api_url: Optional[str] = None, model: Optional[str] = None, timeout: int = 30):
+    def __init__(self, api_url: Optional[str] = None, model: Optional[str] = None, timeout: int = 60):
         self.logger: logging.Logger = logging.getLogger(__name__)
         self.logger.debug(f"Function start: Translator.__init__(api_url='{api_url}', model='{model}', timeout={timeout})")
         """
@@ -132,6 +132,7 @@ class Translator:
 
         # Retry logic
         for attempt in range(max_retries):
+            self.logger.debug(f'{attempt + 1}th attempt.')
             try:
                 # Create API request payload
                 payload: Dict[str, Any] = self.llm.translation_prompt(texts_to_translate)
@@ -141,10 +142,15 @@ class Translator:
                     self.logger.error("LLM returned an empty response list.")
                     raise Exception("LLM returned an empty response list.")
 
-                # Process each response
+                if len(texts_to_translate) != len(llm_responses):
+                    self.logger.warning(f'texts_to_translate size({len(texts_to_translate)}) != llm_responses size({len(llm_responses)})')
+
                 for i, llm_response in enumerate(llm_responses):
                     original_text_index = processed_texts.index(texts_to_translate[i]) # Find original index
                     result = results[original_text_index]
+
+                    if i != original_text_index:
+                        self.logger.warning(f'i({i}) != original_text_index({original_text_index})')
 
                     if llm_response["status_code"] == 503:
                         self.logger.error(f"Failed to connect to API")
@@ -225,19 +231,27 @@ class Translator:
                         result["error"] = f"An error occurred: {e}"
                         result["attempts"] = attempt + 1
             
-            if any(result["success"] is False for result in results):
-                if attempt < max_retries - 1:
-                    self.logger.info(f"Retrying all translations (attempt {attempt + 1}/{max_retries})")
-                    time.sleep(1)  # Wait 1 second and retry
-                else:
-                    self.logger.error(f"All {max_retries} translation attempts failed.")
-                    processing_time = time.time() - start_time
-                    for result in results:
-                        if not result["success"]:
-                            result["error"] = f"Translation failed ({max_retries} attempts)"
-                            result["processing_time"] = processing_time / len(results) if results else 0.0
-                            result["attempts"] = max_retries
-                    return results
+            # Check if all translations were successful in this attempt
+            all_successful_in_attempt = all(result["success"] for result in results if result["original_text"] in texts_to_translate)
+            
+            if all_successful_in_attempt:
+                self.logger.info(f"All translations successful after {attempt + 1} attempts.")
+                break # Exit retry loop if all successful
+            
+            if attempt < max_retries - 1:
+                self.logger.info(f"Retrying all translations (attempt {attempt + 1}/{max_retries})")
+                self.logger.info(f"{[result for result in results if not result["success"]]}")
+                
+                time.sleep(1)  # Wait 1 second and retry
+            else:
+                self.logger.error(f"All {max_retries} translation attempts failed.")
+                processing_time = time.time() - start_time
+                for result in results:
+                    if not result["success"]:
+                        result["error"] = f"Translation failed ({max_retries} attempts)"
+                        result["processing_time"] = processing_time / len(results) if results else 0.0
+                        result["attempts"] = max_retries
+                return results
 
         processing_time: float = time.time() - start_time
         for result in results:
@@ -245,43 +259,6 @@ class Translator:
         self.logger.info(f"All translations completed in {processing_time:.2f}s.")
         return results
 
-    def translate_text(self, text: str, source_lang: str = "English",
-                       target_lang: str = "Japanese", max_retries: int = 3) -> Dict[str, Any]:
-        self.logger.debug(f"Function start: translate_text(text_len={len(text)}, source_lang='{source_lang}', target_lang='{target_lang}', max_retries={max_retries})")
-        """
-        Translates text. This is a wrapper for translate_texts for single text translation.
-
-        Args:
-            text: Text to translate
-            source_lang: Source language
-            target_lang: Target language
-            max_retries: Maximum number of retries
-
-        Returns:
-            Dictionary of translation results for the single text
-        """
-        results = self.translate_texts(
-            texts=[text],
-            source_lang=source_lang,
-            target_lang=target_lang,
-            max_retries=max_retries,
-        )
-        if results:
-            return results[0]
-        else:
-            return {
-                "error": "Translation failed unexpectedly",
-                "original_text": text,
-                "translated_text": None,
-                "source_lang": source_lang,
-                "target_lang": target_lang,
-                "model": self.model,
-                "tokens_used": 0,
-                "processing_time": 0.0,
-                "status_code": None,
-                "attempts": 0
-            }
-
     def _clean_translation(self, translated_text: str) -> str:
         self.logger.debug(f"Function start: _clean_translation(translated_text={translated_text})")
         """
@@ -323,112 +300,8 @@ class Translator:
         suffixes_to_remove: List[str] = [
             "translation",
             "Translation",
-            "訳",
             "翻訳",
-        ]
-
-        for suffix in suffixes_to_remove:
-            if cleaned.endswith(suffix):
-                cleaned = cleaned[:-len(suffix)].strip()
-                break
-
-        self.logger.debug("Function end: _clean_translation (success)")
-        return cleaned
-
-    def _is_invalid_translation(self, original_text: str, translated_text: str) -> bool:
-        self.logger.debug(f"Function start: _is_invalid_translation(original_text={original_text}, translated_text={translated_text})")
-        """
-        Validates if the translation result is inappropriate.
-
-        Args:
-            original_text: Original text
-            translated_text: Translated text
-
-        Returns:
-            True if inappropriate, False if appropriate
-        """
-        if len(original_text.strip()) <= 1 and len(translated_text.strip())  <= 1:
-            self.logger.warning("Texts is too short.")
-            self.logger.debug("Function end: _is_invalid_translation (text too short)")
-            return False
-
-        if 1 < len(original_text.strip()) and len(translated_text.strip())  <= 1:
-            self.logger.warning("Translation result is too short.")
-            self.logger.debug("Function end: _is_invalid_translation (translation result too short)")
-            return True
-
-        # If translation result contains only inappropriate words
-        invalid_responses: List[str] = ["OK", "ok", "Okay", "okay", "Yes", "yes", "No", "no",
-                           "はい", "いいえ", "OKです", "了解", "承知いたしました"]
-        if (original_text not in invalid_responses) and (translated_text.strip() in invalid_responses):
-            self.logger.warning("Translation result is invalid.")
-            self.logger.debug("Function end: _is_invalid_translation (invalid translation result)")
-            return True
-        
-        if 5 <= len(original_text.strip()) and 5 <= len(translated_text.strip()) and original_text.strip() == translated_text.strip():
-            self.logger.warning("Translation result is same text.")
-            self.logger.debug("Function end: _is_invalid_translation (same text)")
-            # TODO: As a temporary measure, it is now considered normal
-            return False
-
-        # If translation result is too short (e.g., "OK")
-        if 2 < len(original_text.strip()) and len(translated_text.strip()) <= 2:
-            self.logger.warning("Translation result is too short.")
-            self.logger.debug("Function end: _is_invalid_translation (translation too short)")
-            return False
-
-        # If translation result contains only symbols
-        if translated_text.strip().isalnum() and len(translated_text.strip()) <= 5:
-            self.logger.warning("The translation result only contains symbols.")
-            self.logger.debug("Function end: _is_invalid_translation (translation contains only symbols)")
-            return False
-
-        self.logger.debug("Function end: _is_invalid_translation (success)")
-        return False
-
-    def _clean_translation(self, translated_text: str) -> str:
-        self.logger.debug(f"Function start: _clean_translation(translated_text={translated_text})")
-        """
-        Formats the translation result.
-
-        Args:
-            translated_text: Unformatted translated text
-
-        Returns:
-            Formatted translated text
-        """
-        if not translated_text:
-            self.logger.debug("Function end: _clean_translation (empty text)")
-            return ""
-
-        # Remove extra whitespace
-        cleaned: str = translated_text.strip()
-
-        # Normalize newlines
-        cleaned = cleaned.replace("\r\n", "\n").replace("\r", "\n")
-
-        # Remove unnecessary prefixes/suffixes
-        prefixes_to_remove: List[str] = [
-            "Japanese translation:",
-            "Japanese:",
-            "日本語訳:",
-            "日本語:",
-            "翻訳:",
-            "Translation:",
-            "translation:",
-        ]
-
-        for prefix in prefixes_to_remove:
-            if cleaned.startswith(prefix):
-                cleaned = cleaned[len(prefix):].strip()
-                break
-
-        # Remove unnecessary suffixes
-        suffixes_to_remove: List[str] = [
-            "translation",
-            "Translation",
             "訳",
-            "翻訳",
         ]
 
         for suffix in suffixes_to_remove:

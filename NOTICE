@@ -36,6 +36,16 @@ Python Dependencies:
 | psutil         | BSD License     | <https://pypi.org/project/psutil/7.1.0/>          |
 | reportlab      | BSD License     | <https://pypi.org/project/reportlab/4.4.4/>       |
 | pdfminer.six   | MIT License     | <https://pypi.org/project/pdfminer.six/20250506/> |
+| pytesseract    | Apache 2.0      | <https://pypi.org/project/pytesseract/0.3.13/>    |
+
+In addition, this project makes use of independent external programs (utilities).
+it is not directly linked to the code of these applications,
+but is executed as independent external commands via the operating system's inter-process communication mechanisms (e.g., subprocess).
+As a result, this project and these applications are treated as an **aggregation**, and **the license of this project is not affected by the licenses of these applications**.
+
+| Package name | License          | url                                                                     |
+| ------------ | ---------------- | ----------------------------------------------------------------------- |
+| Poppler      | GPL-2.0, GPL-3.0 | <https://gitlab.freedesktop.org/poppler/poppler/-/tags/poppler-25.03.0> |
 
 Japanese Font:
 - IPAex明朝 (IPA Font License Agreement v1.0)

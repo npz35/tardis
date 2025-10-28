@@ -65,9 +65,14 @@
                         </button>
                     </div>
                     <div class="action-buttons">
-                        <button class="operation-button" id="translateButton" style="display: none;">翻訳開始</button>
+                        <button class="operation-button" id="columnSeparationButton"
+                            style="display: none;">段組み分離</button>
+                        <button class="operation-button" id="areaColoringButton" style="display: none;">領域色分け</button>
+                        <button class="operation-button" id="extractTextButton" style="display: none;">テキスト抽出</button>
+                        <button class="operation-button" id="translateTextButton" style="display: none;">テキスト翻訳</button>
                         <button class="operation-button" id="figureButton" style="display: none;">図表抽出</button>
-                        <button class="operation-button" id="debugButton" style="display: none;">デバッグ</button>
+                        <button class="operation-button" id="drawTextButton" style="display: none;">翻訳</button>
+                        <button class="operation-button" id="healthButton" style="display: none;">Healthチェック</button>
                     </div>
                 </div>
             </div>
@@ -235,6 +240,11 @@
                     </div>
                     <a id="download-pdf" href="#" class="button" style="display:none;" download>翻訳済みPDFをダウンロード</a>
                 </div>
+
+                <div class="extracted-text-display" id="extractedTextDisplay" style="display: none;">
+                    <h3>抽出されたテキスト</h3>
+                    <pre id="extractedTextContent"></pre>
+                </div>
         </main>
 
         <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
@@ -266,33 +276,17 @@
 
                     // アップロードエリアを非表示にする
                     document.getElementById('uploadArea').style.display = 'none';
-
-                    // 翻訳開始ボタンを表示する
-                    document.getElementById('translateButton').style.display = 'block';
-
-                    // 画像抽出ボタンも表示する
+                    // 表示
+                    document.getElementById('columnSeparationButton').style.display = 'block';
+                    document.getElementById('areaColoringButton').style.display = 'block';
+                    document.getElementById('extractTextButton').style.display = 'block';
+                    document.getElementById('translateTextButton').style.display = 'block';
                     document.getElementById('figureButton').style.display = 'block';
-                    document.getElementById('debugButton').style.display = 'block';
+                    document.getElementById('drawTextButton').style.display = 'block';
+                    document.getElementById('healthButton').style.display = 'block';
 
                     // 選択されたファイルを保存する
                     window.selectedFile = file;
-                }
-            });
-
-            // Click event for the translation start button
-            document.getElementById('translateButton').addEventListener('click', function () {
-                const file = window.selectedFile;
-                if (file) {
-                    // 翻訳セクションを表示する
-                    document.getElementById('translationSection').style.display = 'block';
-                    // 非表示
-                    document.getElementById('translateButton').style.display = 'none';
-                    document.getElementById('figureButton').style.display = 'none';
-                    document.getElementById('debugButton').style.display = 'none';
-                    // 翻訳処理を開始する
-                    startTranslationProcess(file);
-                } else {
-                    alert('選択されていません');
                 }
             });
 
@@ -302,47 +296,150 @@
                 if (file) {
                     // 翻訳セクションを表示する
                     document.getElementById('translationSection').style.display = 'block';
-                    // 翻訳開始ボタンを非表示にする
-                    document.getElementById('translateButton').style.display = 'none';
                     // 非表示
+                    document.getElementById('columnSeparationButton').style.display = 'none';
+                    document.getElementById('areaColoringButton').style.display = 'none';
+                    document.getElementById('extractTextButton').style.display = 'none';
+                    document.getElementById('translateTextButton').style.display = 'none';
                     document.getElementById('figureButton').style.display = 'none';
-                    document.getElementById('debugButton').style.display = 'none';
+                    document.getElementById('drawTextButton').style.display = 'none';
+                    document.getElementById('healthButton').style.display = 'none';
                     // デバッグ処理を開始する
-                    startDebugProcess(file);
+                    startFigureProcess(file);
                 } else {
                     alert('選択されていません');
                 }
             });
 
-            // Click event for the debug button
-            document.getElementById('debugButton').addEventListener('click', function () {
+            // Click event for the text extraction button
+            document.getElementById('extractTextButton').addEventListener('click', function () {
                 const file = window.selectedFile;
                 if (file) {
                     // 翻訳セクションを表示する
                     document.getElementById('translationSection').style.display = 'block';
-                    // 翻訳開始ボタンを非表示にする
-                    document.getElementById('translateButton').style.display = 'none';
                     // 非表示
+                    document.getElementById('columnSeparationButton').style.display = 'none';
+                    document.getElementById('areaColoringButton').style.display = 'none';
+                    document.getElementById('extractTextButton').style.display = 'none';
+                    document.getElementById('translateTextButton').style.display = 'none';
                     document.getElementById('figureButton').style.display = 'none';
-                    document.getElementById('debugButton').style.display = 'none';
-                    // デバッグ処理を開始する
-                    startDebugProcess(file);
+                    document.getElementById('drawTextButton').style.display = 'none';
+                    document.getElementById('healthButton').style.display = 'none';
+                    // テキスト抽出処理を開始する
+                    startExtractTextProcess(file);
                 } else {
                     alert('選択されていません');
                 }
             });
 
-            // Convert file size to a human-readable format
-            function formatFileSize(bytes) {
-                if (bytes === 0) return '0 Bytes';
-                const k = 1024;
-                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-                const i = Math.floor(Math.log(bytes) / Math.log(k));
-                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-            }
+            // Click event for the text translation button
+            document.getElementById('translateTextButton').addEventListener('click', function () {
+                const file = window.selectedFile;
+                if (file) {
+                    // 翻訳セクションを表示する
+                    document.getElementById('translationSection').style.display = 'block';
+                    // 非表示
+                    document.getElementById('columnSeparationButton').style.display = 'none';
+                    document.getElementById('areaColoringButton').style.display = 'none';
+                    document.getElementById('extractTextButton').style.display = 'none';
+                    document.getElementById('translateTextButton').style.display = 'none';
+                    document.getElementById('figureButton').style.display = 'none';
+                    document.getElementById('drawTextButton').style.display = 'none';
+                    document.getElementById('healthButton').style.display = 'none';
+                    // テキスト翻訳処理を開始する
+                    startTranslateTextProcess(file);
+                } else {
+                    alert('選択されていません');
+                }
+            });
 
-            // Start translation process
-            function startTranslationProcess(file) {
+            // Click event for the draw text button
+            document.getElementById('drawTextButton').addEventListener('click', function () {
+                const file = window.selectedFile;
+                if (file) {
+                    // 翻訳セクションを表示する
+                    document.getElementById('translationSection').style.display = 'block';
+                    // 非表示
+                    document.getElementById('columnSeparationButton').style.display = 'none';
+                    document.getElementById('areaColoringButton').style.display = 'none';
+                    document.getElementById('extractTextButton').style.display = 'none';
+                    document.getElementById('translateTextButton').style.display = 'none';
+                    document.getElementById('figureButton').style.display = 'none';
+                    document.getElementById('drawTextButton').style.display = 'none';
+                    document.getElementById('healthButton').style.display = 'none';
+                    // 翻訳処理を開始する
+                    startDrawTextProcess(file);
+                } else {
+                    alert('選択されていません');
+                }
+            });
+
+            // Click event for the area coloring button
+            document.getElementById('areaColoringButton').addEventListener('click', function () {
+                const file = window.selectedFile;
+                if (file) {
+                    // 翻訳セクションを表示する
+                    document.getElementById('translationSection').style.display = 'block';
+                    // 非表示
+                    document.getElementById('columnSeparationButton').style.display = 'none';
+                    document.getElementById('areaColoringButton').style.display = 'none';
+                    document.getElementById('extractTextButton').style.display = 'none';
+                    document.getElementById('translateTextButton').style.display = 'none';
+                    document.getElementById('figureButton').style.display = 'none';
+                    document.getElementById('drawTextButton').style.display = 'none';
+                    document.getElementById('healthButton').style.display = 'none';
+                    // 領域色分け処理を開始する
+                    startAreaColoringProcess(file);
+                } else {
+                    alert('選択されていません');
+                }
+            });
+
+            // Click event for the columnSeparation button
+            document.getElementById('columnSeparationButton').addEventListener('click', function () {
+                const file = window.selectedFile;
+                if (file) {
+                    // 翻訳セクションを表示する
+                    document.getElementById('translationSection').style.display = 'block';
+                    // 非表示
+                    document.getElementById('columnSeparationButton').style.display = 'none';
+                    document.getElementById('areaColoringButton').style.display = 'none';
+                    document.getElementById('extractTextButton').style.display = 'none';
+                    document.getElementById('translateTextButton').style.display = 'none';
+                    document.getElementById('figureButton').style.display = 'none';
+                    document.getElementById('drawTextButton').style.display = 'none';
+                    document.getElementById('healthButton').style.display = 'none';
+                    // 段組み分離処理を開始する
+                    startSeparationProcess(file);
+                } else {
+                    alert('選択されていません');
+                }
+            });
+
+            // Click event for the health check button
+            document.getElementById('healthButton').addEventListener('click', function () {
+                const file = window.selectedFile; // ファイル選択は不要だが、他のボタンとの整合性のため残す
+                if (file) {
+                    // 翻訳セクションを表示する
+                    document.getElementById('translationSection').style.display = 'block';
+                    // 非表示
+                    document.getElementById('columnSeparationButton').style.display = 'none';
+                    document.getElementById('areaColoringButton').style.display = 'none';
+                    document.getElementById('extractTextButton').style.display = 'none';
+                    document.getElementById('translateTextButton').style.display = 'none';
+                    document.getElementById('figureButton').style.display = 'none';
+                    document.getElementById('drawTextButton').style.display = 'none';
+                    document.getElementById('healthButton').style.display = 'none';
+                    // Healthチェック処理を開始する
+                    startHealthCheckProcess();
+                } else {
+                    alert('ファイルが選択されていませんが、Healthチェックは実行します。');
+                    startHealthCheckProcess(); // ファイル選択がなくてもHealthチェックは実行
+                }
+            });
+
+            // 段組み分離処理を開始
+            function startSeparationProcess(file) {
                 // File validation
                 if (!file.name.toLowerCase().endsWith('.pdf')) {
                     alert('PDFファイルのみ対応しています');
@@ -357,48 +454,14 @@
                 }
 
                 // Update status
-                updateStatus('処理中...', 'processing');
-                // updateStep(1, 'active'); // ステップごとの更新はPython側から受け取る
-                updateProgress(0); // PDF解析開始で0%
+                updateStatus('段組み分離処理中...', 'processing');
+                updateProgress(0);
 
-                // Upload file
-                uploadFile(file);
-            }
-
-            // Start figure process (currently same as translation process)
-            function startDebugProcess(file) {
-                // File validation
-                if (!file.name.toLowerCase().endsWith('.pdf')) {
-                    alert('PDFファイルのみ対応しています');
-                    resetUpload();
-                    return;
-                }
-
-                if (file.size > 16 * 1024 * 1024) {
-                    alert('ファイルサイズが16MBを超えています');
-                    resetUpload();
-                    return;
-                }
-
-                // Update status
-                updateStatus('デバッグ処理中...', 'processing'); // デバッグ用にステータスを変更
-                // updateStep(1, 'active'); // ステップごとの更新はPython側から受け取る
-                updateProgress(0); // PDF解析開始で0%
-
-                // Upload file
-                uploadDebugFile(file); // デバッグ用のアップロード関数を呼び出す
-            }
-
-            // ファイルをアップロード
-            function uploadFile(file) {
+                // Upload process (for columnSeparation)
                 const formData = new FormData();
                 formData.append('file', file);
 
-                // Reset progress bar
-                updateProgress(0);
-
-                // Upload process
-                fetch('/upload', {
+                fetch('column_separation', {
                     method: 'POST',
                     body: formData
                 })
@@ -406,17 +469,14 @@
                         if (response.ok) {
                             return response.json();
                         } else {
-                            throw new Error('Upload failed');
+                            throw new Error('columnSeparation failed');
                         }
                     })
                     .then(data => {
-                        // Post-translation processing
-                        // updateStep(5, 'completed'); // ステップごとの更新はPython側から受け取る
-                        document.getElementById('step5').querySelector('p').textContent = '翻訳済みPDFの生成が完了しました。';
-                        updateStatus('翻訳完了', 'active');
-                        updateProgress(100, 5); // PDF生成完了で100%
+                        updateStatus('段組み分離完了', 'active');
+                        updateProgress(100);
 
-                        // Display result section
+                        // 結果セクションを表示する
                         document.getElementById('resultSection').style.display = 'block';
 
                         // Display preview and download link
@@ -425,11 +485,12 @@
                         const previewPlaceholder = document.querySelector('.preview-placeholder');
 
                         if (data && data.filename) {
-                            const translatedPdfUrl = `/preview/${data.filename}`;
-                            pdfPreview.src = translatedPdfUrl;
+                            const columnSeparationPdfUrl = `/preview/${data.filename}`;
+                            pdfPreview.src = columnSeparationPdfUrl;
                             pdfPreview.style.display = 'block';
                             previewPlaceholder.style.display = 'none'; // プレースホルダーを非表示
-                            downloadPdfLink.href = translatedPdfUrl;
+
+                            downloadPdfLink.href = columnSeparationPdfUrl;
                             downloadPdfLink.download = data.filename;
                             downloadPdfLink.style.display = 'block';
 
@@ -439,32 +500,363 @@
                         } else {
                             // Use default filename if filename cannot be obtained
                             downloadPdfLink.href = '#';
-                            downloadPdfLink.download = 'translated_document.pdf';
+                            downloadPdfLink.download = 'separated_document.pdf'; // Default File Name
                             downloadPdfLink.style.display = 'block';
 
-                            // ダウンロードボタンを有効化し、デフォルトのファイル名を設定
-                            document.getElementById('downloadButton').setAttribute('data-filename', 'translated_document.pdf');
+                            // Enable download button and set filename
+                            document.getElementById('downloadButton').setAttribute('data-filename', 'separated_document.pdf');
                             document.getElementById('downloadButton').disabled = false;
                         }
 
-                        // Display processing time and number of translated units
-                        if (data.processingTime) {
-                            document.getElementById('processingTime').textContent = data.processingTime;
-                        }
-                        if (data.translatedUnits) {
-                            document.getElementById('translatedUnits').textContent = data.translatedUnits;
+                        // 処理時間と分離列数を表示
+                        if (data.processing_time) {
+                            document.getElementById('processingTime').textContent = data.processing_time;
                         }
                     })
                     .catch(error => {
                         console.error('Error:', error);
                         updateStatus('エラーが発生しました', 'error');
-                        alert('翻訳処理中にエラーが発生しました。もう一度お試しください。');
+                        alert('段組み分離処理中にエラーが発生しました。もう一度お試しください。');
                         resetUpload();
                     });
             }
 
-            // デバッグファイルをアップロード
-            function uploadDebugFile(file) {
+            // 領域色分け処理を開始
+            function startAreaColoringProcess(file) {
+                // File validation
+                if (!file.name.toLowerCase().endsWith('.pdf')) {
+                    alert('PDFファイルのみ対応しています');
+                    resetUpload();
+                    return;
+                }
+
+                if (file.size > 16 * 1024 * 1024) {
+                    alert('ファイルサイズが16MBを超えています');
+                    resetUpload();
+                    return;
+                }
+
+                // Update status
+                updateStatus('領域色分け処理中...', 'processing');
+                updateProgress(0);
+
+                // Upload process (for area coloring)
+                const formData = new FormData();
+                formData.append('file', file);
+
+                fetch('/area_separation', {
+                    method: 'POST',
+                    body: formData
+                })
+                    .then(response => {
+                        if (response.ok) {
+                            return response.json();
+                        } else {
+                            throw new Error('Area coloring failed');
+                        }
+                    })
+                    .then(data => {
+                        updateStatus('領域色分け完了', 'active');
+                        updateProgress(100);
+
+                        // 結果セクションを表示する
+                        document.getElementById('resultSection').style.display = 'block';
+
+                        // Display preview and download link
+                        const pdfPreview = document.getElementById('pdf-preview');
+                        const downloadPdfLink = document.getElementById('download-pdf');
+                        const previewPlaceholder = document.querySelector('.preview-placeholder');
+
+                        if (data && data.filename) {
+                            const coloredPdfUrl = `/preview/${data.filename}`;
+                            pdfPreview.src = coloredPdfUrl;
+                            pdfPreview.style.display = 'block';
+                            previewPlaceholder.style.display = 'none'; // プレースホルダーを非表示
+
+                            downloadPdfLink.href = coloredPdfUrl;
+                            downloadPdfLink.download = data.filename;
+                            downloadPdfLink.style.display = 'block';
+
+                            // Enable download button and set filename
+                            document.getElementById('downloadButton').setAttribute('data-filename', data.filename);
+                            document.getElementById('downloadButton').disabled = false;
+                        } else {
+                            // Use default filename if filename cannot be obtained
+                            downloadPdfLink.href = '#';
+                            downloadPdfLink.download = 'colored_document.pdf'; // Default File Name
+                            downloadPdfLink.style.display = 'block';
+
+                            // Enable download button and set filename
+                            document.getElementById('downloadButton').setAttribute('data-filename', 'colored_document.pdf');
+                            document.getElementById('downloadButton').disabled = false;
+                        }
+
+                        // 処理時間と色分け領域数を表示
+                        if (data.processing_time) {
+                            document.getElementById('processingTime').textContent = data.processing_time;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        updateStatus('エラーが発生しました', 'error');
+                        alert('領域色分け処理中にエラーが発生しました。もう一度お試しください。');
+                        resetUpload();
+                    });
+            }
+
+            // テキスト抽出処理を開始
+            function startExtractTextProcess(file) {
+                // File validation
+                if (!file.name.toLowerCase().endsWith('.pdf')) {
+                    alert('PDFファイルのみ対応しています');
+                    resetUpload();
+                    return;
+                }
+
+                if (file.size > 16 * 1024 * 1024) {
+                    alert('ファイルサイズが16MBを超えています');
+                    resetUpload();
+                    return;
+                }
+
+                // Update status
+                updateStatus('テキスト抽出処理中...', 'processing');
+                updateProgress(0);
+
+                // Upload process (for text extraction)
+                const formData = new FormData();
+                formData.append('file', file);
+
+                fetch('/extract_text', {
+                    method: 'POST',
+                    body: formData
+                })
+                    .then(response => {
+                        if (response.ok) {
+                            return response.json();
+                        } else {
+                            throw new Error('Text extraction failed');
+                        }
+                    })
+                    .then(data => {
+                        updateStatus('テキスト抽出完了', 'active');
+                        updateProgress(100);
+
+                        // 結果セクションを表示する
+                        document.getElementById('resultSection').style.display = 'block';
+
+                        // Display preview and download link
+                        const pdfPreview = document.getElementById('pdf-preview');
+                        const downloadPdfLink = document.getElementById('download-pdf');
+                        const previewPlaceholder = document.querySelector('.preview-placeholder');
+                        const extractedTextDisplay = document.getElementById('extractedTextDisplay');
+                        const extractedTextContent = document.getElementById('extractedTextContent');
+                        extractedTextContent.innerHTML = ''; // Clear previous content
+
+                        if (data && data.filename) {
+                            const extractedPdfUrl = `/preview/${data.filename}`;
+                            pdfPreview.src = extractedPdfUrl;
+                            pdfPreview.style.display = 'block';
+                            previewPlaceholder.style.display = 'none'; // プレースホルダーを非表示
+
+                            downloadPdfLink.href = extractedPdfUrl;
+                            downloadPdfLink.download = data.filename;
+                            downloadPdfLink.style.display = 'block';
+                            downloadPdfLink.textContent = '番号付きPDFをダウンロード';
+
+                            // Enable download button and set filename
+                            document.getElementById('downloadButton').setAttribute('data-filename', data.filename);
+                            document.getElementById('downloadButton').textContent = '番号付きPDFをダウンロード';
+                            document.getElementById('downloadButton').disabled = false;
+                        } else {
+                            // Use default filename if filename cannot be obtained
+                            downloadPdfLink.href = '#';
+                            downloadPdfLink.download = 'text_document.pdf'; // Default File Name
+                            downloadPdfLink.style.display = 'block';
+
+                            // Enable download button and set filename
+                            document.getElementById('downloadButton').setAttribute('data-filename', 'text_document.pdf');
+                            document.getElementById('downloadButton').disabled = false;
+
+                            // pdfPreview.style.display = 'none';
+                            // previewPlaceholder.style.display = 'block';
+                            // downloadPdfLink.style.display = 'none';
+                            // document.getElementById('downloadButton').disabled = true;
+                        }
+
+                        if (data && data.text_filename) {
+                            const extractedTextUrl = `/preview_text/${data.text_filename}`;
+                            // テキストファイルの内容を直接取得して表示するのだ
+                            fetch(extractedTextUrl)
+                                .then(response => response.text())
+                                .then(text => {
+                                    extractedTextContent.textContent = text;
+                                    extractedTextDisplay.style.display = 'block';
+                                })
+                                .catch(error => {
+                                    console.error('Error fetching text file:', error);
+                                    extractedTextContent.textContent = 'テキストファイルの読み込みに失敗したのだ。';
+                                    extractedTextDisplay.style.display = 'block';
+                                });
+                        } else {
+                            extractedTextContent.textContent = 'テキストが抽出されなかったのだ。';
+                            extractedTextDisplay.style.display = 'block';
+                        }
+
+                        // 処理時間と抽出されたテキストブロック数を表示
+                        if (data.processing_time) {
+                            document.getElementById('processingTime').textContent = data.processing_time;
+                        }
+                        if (data.extracted_text_blocks) {
+                            document.getElementById('translatedUnits').textContent = data.extracted_text_blocks;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        updateStatus('エラーが発生しました', 'error');
+                        alert('テキスト抽出処理中にエラーが発生しました。もう一度お試しください。');
+                        resetUpload();
+                    });
+            }
+
+            // テキスト翻訳処理を開始
+            function startTranslateTextProcess(file) {
+                // File validation
+                if (!file.name.toLowerCase().endsWith('.pdf')) {
+                    alert('PDFファイルのみ対応しています');
+                    resetUpload();
+                    return;
+                }
+
+                if (file.size > 16 * 1024 * 1024) {
+                    alert('ファイルサイズが16MBを超えています');
+                    resetUpload();
+                    return;
+                }
+
+                // Update status
+                updateStatus('テキスト翻訳処理中...', 'processing');
+                updateProgress(0);
+
+                // Upload process (for text translation)
+                const formData = new FormData();
+                formData.append('file', file);
+
+                fetch('/translate_text', {
+                    method: 'POST',
+                    body: formData
+                })
+                    .then(response => {
+                        if (response.ok) {
+                            return response.json();
+                        } else {
+                            throw new Error('Text translation failed');
+                        }
+                    })
+                    .then(data => {
+                        updateStatus('テキスト翻訳完了', 'active');
+                        updateProgress(100);
+
+                        // 結果セクションを表示する
+                        document.getElementById('resultSection').style.display = 'block';
+
+                        // Display preview and download link
+                        const pdfPreview = document.getElementById('pdf-preview');
+                        const downloadPdfLink = document.getElementById('download-pdf');
+                        const previewPlaceholder = document.querySelector('.preview-placeholder');
+                        const extractedTextDisplay = document.getElementById('extractedTextDisplay');
+                        const extractedTextContent = document.getElementById('extractedTextContent');
+                        extractedTextContent.innerHTML = ''; // Clear previous content
+
+                        if (data && data.filename) {
+                            const translatedPdfUrl = `/preview/${data.filename}`;
+                            pdfPreview.src = translatedPdfUrl;
+                            pdfPreview.style.display = 'block';
+                            previewPlaceholder.style.display = 'none'; // プレースホルダーを非表示
+
+                            downloadPdfLink.href = translatedPdfUrl;
+                            downloadPdfLink.download = data.filename;
+                            downloadPdfLink.style.display = 'block';
+                            downloadPdfLink.textContent = '翻訳済みテキストブロックPDFをダウンロード';
+
+                            // Enable download button and set filename
+                            document.getElementById('downloadButton').setAttribute('data-filename', data.filename);
+                            document.getElementById('downloadButton').textContent = '翻訳済みテキストブロックPDFをダウンロード';
+                            document.getElementById('downloadButton').disabled = false;
+                        } else {
+                            // Use default filename if filename cannot be obtained
+                            downloadPdfLink.href = '#';
+                            downloadPdfLink.download = 'japanese_document.pdf'; // Default File Name
+                            downloadPdfLink.style.display = 'block';
+
+                            // Enable download button and set filename
+                            document.getElementById('downloadButton').setAttribute('data-filename', 'japanese_document.pdf');
+                            document.getElementById('downloadButton').disabled = false;
+
+                            // pdfPreview.style.display = 'none';
+                            // previewPlaceholder.style.display = 'block';
+                            // downloadPdfLink.style.display = 'none';
+                            // document.getElementById('downloadButton').disabled = true;
+                        }
+
+                        if (data && data.text_filename) {
+                            const translatedTextUrl = `/preview_text/${data.text_filename}`;
+                            // テキストファイルの内容を直接取得して表示するのだ
+                            fetch(translatedTextUrl)
+                                .then(response => response.text())
+                                .then(text => {
+                                    extractedTextContent.textContent = text;
+                                    extractedTextDisplay.style.display = 'block';
+                                })
+                                .catch(error => {
+                                    console.error('Error fetching translated text file:', error);
+                                    extractedTextContent.textContent = '翻訳済みテキストファイルの読み込みに失敗したのだ。';
+                                    extractedTextDisplay.style.display = 'block';
+                                });
+                        } else {
+                            extractedTextContent.textContent = '翻訳済みテキストが抽出されなかったのだ。';
+                            extractedTextDisplay.style.display = 'block';
+                        }
+
+                        // 処理時間と翻訳されたテキストブロック数を表示
+                        if (data.processing_time) {
+                            document.getElementById('processingTime').textContent = data.processing_time;
+                        }
+                        if (data.translated_text_blocks) {
+                            document.getElementById('translatedUnits').textContent = data.translated_text_blocks;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        updateStatus('エラーが発生しました', 'error');
+                        alert('テキスト翻訳処理中にエラーが発生しました。もう一度お試しください。');
+                        resetUpload();
+                    });
+            }
+
+            // Start figure process (currently same as translation process)
+            function startFigureProcess(file) {
+                // File validation
+                if (!file.name.toLowerCase().endsWith('.pdf')) {
+                    alert('PDFファイルのみ対応しています');
+                    resetUpload();
+                    return;
+                }
+
+                if (file.size > 16 * 1024 * 1024) {
+                    alert('ファイルサイズが16MBを超えています');
+                    resetUpload();
+                    return;
+                }
+
+                // Update status
+                updateStatus('画像処理中...', 'processing');
+                updateProgress(0); // PDF解析開始で0%
+
+                extractFigure(file);
+            }
+
+            function extractFigure(file) {
                 const formData = new FormData();
                 formData.append('file', file);
 
@@ -480,15 +872,14 @@
                         if (response.ok) {
                             return response.json();
                         } else {
-                            throw new Error('Debug upload failed');
+                            throw new Error('Extract figures failed');
                         }
                     })
                     .then(data => {
                         // Post-figure processing (currently same as translation)
-                        // updateStep(5, 'completed'); // ステップごとの更新はPython側から受け取る
                         document.getElementById('step5').querySelector('p').textContent = 'デバッグ処理済みPDFの生成が完了しました。';
-                        updateStatus('デバッグ完了', 'active');
-                        updateProgress(100, 5); // PDF生成完了で100%
+                        updateStatus('画像抽出完了', 'active');
+                        updateProgress(100, 5); // STEP5, 100%
 
                         // Display result section
                         document.getElementById('resultSection').style.display = 'block';
@@ -499,11 +890,12 @@
                         const previewPlaceholder = document.querySelector('.preview-placeholder');
 
                         if (data && data.filename) {
-                            const translatedPdfUrl = `/preview/${data.filename}`;
-                            pdfPreview.src = translatedPdfUrl;
+                            const extractFigurePdfUrl = `/preview/${data.filename}`;
+                            pdfPreview.src = extractFigurePdfUrl;
                             pdfPreview.style.display = 'block';
                             previewPlaceholder.style.display = 'none'; // プレースホルダーを非表示
-                            downloadPdfLink.href = translatedPdfUrl;
+
+                            downloadPdfLink.href = extractFigurePdfUrl;
                             downloadPdfLink.download = data.filename;
                             downloadPdfLink.style.display = 'block';
 
@@ -513,20 +905,17 @@
                         } else {
                             // Use default filename if filename cannot be obtained
                             downloadPdfLink.href = '#';
-                            downloadPdfLink.download = 'figure_document.pdf'; // デバッグ用のデフォルトファイル名
+                            downloadPdfLink.download = 'figure_document.pdf'; // Default File Name
                             downloadPdfLink.style.display = 'block';
 
-                            // ダウンロードボタンを有効化し、デフォルトのファイル名を設定
+                            // Enable download button and set filename
                             document.getElementById('downloadButton').setAttribute('data-filename', 'figure_document.pdf');
                             document.getElementById('downloadButton').disabled = false;
                         }
 
                         // Display processing time and number of translated units
-                        if (data.processingTime) {
-                            document.getElementById('processingTime').textContent = data.processingTime;
-                        }
-                        if (data.translatedUnits) {
-                            document.getElementById('translatedUnits').textContent = data.translatedUnits;
+                        if (data.processing_time) {
+                            document.getElementById('processingTime').textContent = data.processing_time;
                         }
                     })
                     .catch(error => {
@@ -535,6 +924,145 @@
                         alert('デバッグ処理中にエラーが発生しました。もう一度お試しください。');
                         resetUpload();
                     });
+            }
+
+            // 翻訳処理を開始
+            function startDrawTextProcess(file) {
+                // File validation
+                if (!file.name.toLowerCase().endsWith('.pdf')) {
+                    alert('PDFファイルのみ対応しています');
+                    resetUpload();
+                    return;
+                }
+
+                if (file.size > 16 * 1024 * 1024) {
+                    alert('ファイルサイズが16MBを超えています');
+                    resetUpload();
+                    return;
+                }
+
+                // Update status
+                updateStatus('翻訳処理中...', 'processing');
+                updateProgress(0);
+
+                // Upload process (for drawing translated text)
+                const formData = new FormData();
+                formData.append('file', file);
+
+                fetch('/draw_text', {
+                    method: 'POST',
+                    body: formData
+                })
+                    .then(response => {
+                        if (response.ok) {
+                            return response.json();
+                        } else {
+                            throw new Error('Draw text failed');
+                        }
+                    })
+                    .then(data => {
+                        updateStatus('翻訳完了', 'active');
+                        updateProgress(100);
+
+                        // 結果セクションを表示する
+                        document.getElementById('resultSection').style.display = 'block';
+
+                        // Display preview and download link
+                        const pdfPreview = document.getElementById('pdf-preview');
+                        const downloadPdfLink = document.getElementById('download-pdf');
+                        const previewPlaceholder = document.querySelector('.preview-placeholder');
+
+                        if (data && data.filename) {
+                            const drawnPdfUrl = `/preview/${data.filename}`;
+                            pdfPreview.src = drawnPdfUrl;
+                            pdfPreview.style.display = 'block';
+                            previewPlaceholder.style.display = 'none'; // プレースホルダーを非表示
+
+                            downloadPdfLink.href = drawnPdfUrl;
+                            downloadPdfLink.download = data.filename;
+                            downloadPdfLink.style.display = 'block';
+                            downloadPdfLink.textContent = '翻訳済みPDFをダウンロード';
+
+                            // Enable download button and set filename
+                            document.getElementById('downloadButton').setAttribute('data-filename', data.filename);
+                            document.getElementById('downloadButton').textContent = '翻訳済みPDFをダウンロード';
+                            document.getElementById('downloadButton').disabled = false;
+                        } else {
+                            // Use default filename if filename cannot be obtained
+                            downloadPdfLink.href = '#';
+                            downloadPdfLink.download = 'translated_document.pdf'; // Default File Name
+                            downloadPdfLink.style.display = 'block';
+
+                            // Enable download button and set filename
+                            document.getElementById('downloadButton').setAttribute('data-filename', 'translated_document.pdf');
+                            document.getElementById('downloadButton').disabled = false;
+
+                            // pdfPreview.style.display = 'none';
+                            // previewPlaceholder.style.display = 'block';
+                            // downloadPdfLink.style.display = 'none';
+                            // document.getElementById('downloadButton').disabled = true;
+                        }
+
+                        // 処理時間と描画されたテキストブロック数を表示
+                        if (data.processing_time) {
+                            document.getElementById('processingTime').textContent = data.processing_time;
+                        }
+                        if (data.drawn_text_blocks) {
+                            document.getElementById('translatedUnits').textContent = data.drawn_text_blocks;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        updateStatus('エラーが発生しました', 'error');
+                        alert('翻訳処理中にエラーが発生しました。もう一度お試しください。');
+                        resetUpload();
+                    });
+            }
+
+            // Healthチェック処理を開始
+            function startHealthCheckProcess() {
+                updateStatus('Healthチェック中...', 'processing');
+                updateProgress(0);
+
+                fetch('/health', {
+                    method: 'GET' // GETリクエスト
+                })
+                    .then(response => {
+                        if (response.ok) {
+                            return response.json();
+                        } else {
+                            throw new Error('Health check failed');
+                        }
+                    })
+                    .then(data => {
+                        updateStatus('Healthチェック完了', 'active');
+                        updateProgress(100);
+
+                        // 結果セクションを表示する
+                        document.getElementById('resultSection').style.display = 'block';
+
+                        // Healthチェック結果を表示する
+                        if (data && data.status) {
+                            alert('Healthチェック結果: ' + data.status);
+                        } else {
+                            alert('Healthチェック結果が取得できなかったのだ。');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        updateStatus('エラーが発生しました', 'error');
+                        alert('Healthチェック処理中にエラーが発生しました。もう一度お試しください。');
+                        resetUpload();
+                    });
+            }
+
+            // Convert file size to a human-readable format
+            function formatFileSize(bytes) {
+                if (bytes === 0) return '0 Bytes';
+                const k = 1024;
+                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
             }
 
             // Update status
@@ -645,31 +1173,6 @@
                 }
             }
 
-            // Reset upload
-            function resetUpload() {
-                document.getElementById('fileInput').value = '';
-                document.getElementById('fileInfo').style.display = 'none';
-                document.getElementById('uploadArea').style.display = 'block';
-                document.getElementById('translationSection').style.display = 'none';
-                document.getElementById('resultSection').style.display = 'none';
-            }
-
-            // File delete button
-            document.getElementById('removeButton').addEventListener('click', function () {
-                resetUpload();
-            });
-
-            // Download button
-            document.getElementById('downloadButton').addEventListener('click', function () {
-                const filename = this.getAttribute('data-filename');
-                if (filename) {
-                    // Execute download process
-                    downloadFile(filename);
-                } else {
-                    alert('ダウンロードするファイルがありません');
-                }
-            });
-
             // ファイルをダウンロード
             function downloadFile(filename) {
                 const downloadUrl = `/download/${filename}`;
@@ -695,6 +1198,32 @@
                     this.textContent = '翻訳済みPDFをダウンロード';
                 }, 3000);
             }
+
+            // Reset upload
+            function resetUpload() {
+                document.getElementById('fileInput').value = '';
+                document.getElementById('fileInfo').style.display = 'none';
+                document.getElementById('uploadArea').style.display = 'block';
+                document.getElementById('translationSection').style.display = 'none';
+                document.getElementById('resultSection').style.display = 'none';
+                document.getElementById('extractedTextDisplay').style.display = 'none'; // Hide extracted text display
+            }
+
+            // File delete button
+            document.getElementById('removeButton').addEventListener('click', function () {
+                resetUpload();
+            });
+
+            // Download button
+            document.getElementById('downloadButton').addEventListener('click', function () {
+                const filename = this.getAttribute('data-filename');
+                if (filename) {
+                    // Execute download process
+                    downloadFile(filename);
+                } else {
+                    alert('ダウンロードするファイルがありません');
+                }
+            });
 
             // Translate new file button
             document.getElementById('newButton').addEventListener('click', function () {
@@ -733,7 +1262,13 @@
                         // document.getElementById('translationSection').style.display = 'block';
 
                         // ファイル選択後に翻訳開始ボタンを表示する
-                        document.getElementById('translateButton').style.display = 'block';
+                        document.getElementById('columnSeparationButton').style.display = 'block';
+                        document.getElementById('areaColoringButton').style.display = 'block';
+                        document.getElementById('extractTextButton').style.display = 'block';
+                        document.getElementById('translateTextButton').style.display = 'block';
+                        document.getElementById('figureButton').style.display = 'block';
+                        document.getElementById('drawTextButton').style.display = 'block';
+                        document.getElementById('healthButton').style.display = 'block';
 
                         // 選択されたファイルを保存する
                         window.selectedFile = file;

@@ -2,7 +2,10 @@ __pycache__
 static/fonts
 outputs/
 uploads/*.txt
+uploads/*.pdf
+!uploads/sample.pdf
 uploads/tmp*
 test_outputs/*.pdf
+test_outputs/*.png
 tests/test_outputs/*.pdf
 *.zip

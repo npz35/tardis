@@ -13,7 +13,7 @@ from app.config import Config
 
 
 class LLM:
-    def __init__(self, api_url: Optional[str] = None, model: Optional[str] = None, timeout: int = 30):
+    def __init__(self, api_url: Optional[str] = None, model: Optional[str] = None, timeout: int = 60):
         self.logger: logging.Logger = logging.getLogger(__name__)
         self.logger.debug(f"Function start: LLM.__init__(api_url='{api_url}', timeout={timeout})")
 
@@ -116,7 +116,7 @@ class LLM:
             self.logger.debug("Function end: check_api_health (success)")
             result["success"] = True
             result["model_available"] = model_available
-            result["availablemodels"] = models
+            result["available_models"] = models if models else None
             return result
 
         except requests.exceptions.RequestException as e:
@@ -376,6 +376,7 @@ class LLM:
                     results.append(result)
             except ET.ParseError as e:
                 self.logger.error(f"XML parse error: {e}. Content: {llm_content}")
+                result: Dict[str, Any] = copy.deepcopy(initial_result) # Initialize result here
                 result["error"] = f"Failed to parse LLM response as XML: {e}"
                 result["response_json"] = response_json
                 result["status_code"] = 500
@@ -383,6 +384,7 @@ class LLM:
                 return results
             except Exception as e:
                 self.logger.error(f"Error processing LLM XML response: {e}. Content: {llm_content}")
+                result: Dict[str, Any] = copy.deepcopy(initial_result) # Initialize result here
                 result["error"] = f"Error processing LLM XML response: {e}"
                 result["response_json"] = response_json
                 result["status_code"] = 500
