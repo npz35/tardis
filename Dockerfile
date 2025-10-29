@@ -13,12 +13,6 @@ RUN apt-get update && apt-get install -y \
     imagemagick \
     iputils-ping \
     libgl1-mesa-dev \
-    libmagickwand-dev \
-    poppler-utils \
-    tesseract-ocr \
-    tesseract-ocr-jpn \
-    tesseract-ocr-eng \
-    tesseract-ocr-ell \
     && rm -rf /var/lib/apt/lists/*
 
 # requirements.txtをコピーしてインストール

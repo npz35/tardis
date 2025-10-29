@@ -1,4 +1,3 @@
-version: '3.8'
 services:
   app:
     build: .
@@ -16,6 +15,7 @@ services:
       - FLASK_ENV=development
       - LOG_LEVEL=DEBUG
       - TRANSLATION_API_URL=http://host.docker.internal:11435
+      - TRANSLATION_MODEL=default-model
       - TEXT_EXTRACTION_METHOD=pdfplumber
       - RENDER_ORIGINAL_ON_TRANSLATION_FAILURE=true
       - ENABLE_FONT_COLOR_HIGHLIGHT=true

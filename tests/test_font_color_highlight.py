@@ -9,6 +9,7 @@ import logging
 from unittest.mock import MagicMock, patch
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
+from app.data_model import FontInfo
 from app.pdf_text_layout import PdfTextLayout
 from app.config import Config
 
@@ -52,27 +53,27 @@ def test_draw_translated_text_with_font_color_highlight(pdf_text_layout_instance
     bbox = (10, 10, 100, 50)
 
     # Test with Helvetica font
-    font_info_helvetica = {"font_name": "Helvetica", "font_size": 12}
+    font_info_helvetica = FontInfo(name='Helvetica', size=12, is_bold=False, is_italic=False)
     pdf_text_layout_instance.draw_translated_text(mock_canvas, translated_text, bbox, font_info_helvetica)
     mock_canvas.setFillColorRGB.assert_any_call(0.0, 0.0, 0.0) # Black
 
     # Test with Times-Roman font
-    font_info_times = {"font_name": "Times-Roman", "font_size": 12}
+    font_info_times = FontInfo(name='Times-Roman', size=12, is_bold=False, is_italic=False)
     pdf_text_layout_instance.draw_translated_text(mock_canvas, translated_text, bbox, font_info_times)
     mock_canvas.setFillColorRGB.assert_any_call(1.0, 0.0, 0.0) # Red
 
     # Test with Courier font
-    font_info_courier = {"font_name": "Courier", "font_size": 12}
+    font_info_courier = FontInfo(name='Courier', size=12, is_bold=False, is_italic=False)
     pdf_text_layout_instance.draw_translated_text(mock_canvas, translated_text, bbox, font_info_courier)
     mock_canvas.setFillColorRGB.assert_any_call(0.0, 0.0, 1.0) # Blue
 
     # Test with unknown font (should default to gray)
-    font_info_unknown = {"font_name": "UnknownFont", "font_size": 12}
+    font_info_unknown = FontInfo(name='UnknownFont', size=12, is_bold=False, is_italic=False)
     pdf_text_layout_instance.draw_translated_text(mock_canvas, translated_text, bbox, font_info_unknown)
     mock_canvas.setFillColorRGB.assert_any_call(0.5, 0.5, 0.5) # Gray
 
     # Test with font name containing '+' (e.g., XLDELO+CMMI10 -> CMMI10)
-    font_info_plus = {"font_name": "XLDELO+CMMI10", "font_size": 12}
+    font_info_plus = FontInfo(name='XLDELO+CMMI10', size=12, is_bold=False, is_italic=False)
     # Add CMMI10 to the mock config's FONT_COLOR_MAP
     MockConfig.FONT_COLOR_MAP["CMMI10"] = (0.1, 0.2, 0.3)
     pdf_text_layout_instance.draw_translated_text(mock_canvas, translated_text, bbox, font_info_plus)
@@ -92,7 +93,7 @@ def test_draw_translated_text_without_font_color_highlight(pdf_text_layout_insta
     with patch('app.pdf_text_layout.Config.ENABLE_FONT_COLOR_HIGHLIGHT', False):
         translated_text = "Hello World"
         bbox = (10, 10, 100, 50)
-        font_info = {"font_name": "Helvetica", "font_size": 12}
+        font_info = FontInfo(name='Helvetica', size=12, is_bold=False, is_italic=False)
         pdf_text_layout_instance.draw_translated_text(mock_canvas, translated_text, bbox, font_info)
         mock_canvas.setFillColorRGB.assert_any_call(0, 0, 0) # Should be black
         assert not any("Setting font color for" in record.message for record in caplog.records)

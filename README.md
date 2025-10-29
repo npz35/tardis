@@ -21,7 +21,7 @@ PDF翻訳Webアプリ TARDIS（Translation And Reviewing Documents Interface Ser
 ## 技術スタック
 
 - **バックエンド**: Python, Flask, Flask-SocketIO
-- **PDF処理**: pdfminer.six, pypdf, ReportLab, Tesseract OCR (pytesseract)
+- **PDF処理**: pdfminer.six, pypdf, ReportLab
 - **翻訳API**: llama.cpp (OpenAI互換API)
 - **フロントエンド**: HTML, CSS, JavaScript, Socket.IO
 - **コンテナ化**: Docker, Docker Compose
@@ -126,7 +126,6 @@ classDiagram
 - Docker
 - Docker Compose
 - llama.cpp (ローカル環境で実行)
-- Tesseract OCR (システムにインストールされていること)
 
 ### パッケージインストール
 
@@ -149,17 +148,6 @@ sudo apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin dock
 python3 -m venv ~/tardis
 source ~/tardis/bin/activate
 python3 -m pip install -r requirements.txt
-```
-
-### フォント設定
-
-[IPA Font ダウンロード](https://moji.or.jp/ipafont/ipafontdownload/)からフォントファイル一式をダウンロードします。
-ダウンロードしたTrueType Fontファイルを`static/fonts`ディレクトリに配置します。
-
-```plaintxt
-static/fonts/
-├── ipaexg.ttf
-└── ipaexm.ttf
 ```
 
 ### 開発環境の起動
