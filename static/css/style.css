@@ -167,6 +167,13 @@ body {
     color: #718096;
 }
 
+.file-pages {
+    font-size: 0.9rem;
+    color: #718096;
+    margin-top: 4px;
+    /* ファイルサイズとの間に少しスペースを開けるのだ */
+}
+
 .remove-button {
     background: none;
     border: none;
@@ -537,6 +544,31 @@ body {
 .error-text {
     font-size: 0.95rem;
     line-height: 1.5;
+}
+
+/* 警告メッセージ */
+.warning-message {
+    background-color: #fff3cd;
+    /* 薄い黄色 */
+    color: #856404;
+    /* 濃い黄色 */
+    padding: 10px 15px;
+    border-radius: 8px;
+    margin-top: 10px;
+    /* filePagesとの間にスペース */
+    border-left: 4px solid #ffc107;
+    /* 左側に黄色のボーダー */
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.warning-message p {
+    margin: 0;
+    /* pタグのデフォルトマージンをリセット */
+    font-size: 0.9rem;
+    color: #dc3545;
+    /* 赤文字 */
 }
 
 /* 成功メッセージ */

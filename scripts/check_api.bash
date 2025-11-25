@@ -12,8 +12,11 @@ docker-compose exec app curl -X POST http://host.docker.internal:11435/v1/chat/c
       },
       {
         "role": "user",
-        "content": "who are you?"
+        "content": "who are you? /nothink"
       }
     ],
-    "stream": "False"
+    "stream": false,
+    "chat_template_kwargs": {
+        "enable_thinking": false
+    }
   }'

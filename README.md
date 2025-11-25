@@ -189,7 +189,7 @@ docker compose up -d
 
 ## テスト
 
-以下のコマンドを実行すると、テスト用のPDFファイル `uploads/sample.pdf` が作成されます。
+以下のコマンドを実行すると、テスト用のPDFファイル `samples/sample.pdf` が作成されます。
 
 ```shell
 python3 app/gen_sample_pdf.py
@@ -214,5 +214,5 @@ OpenAI互換API経由で、LLMへアクセスが可能なのかは以下のコ�
 ## 注意事項
 
 - 翻訳APIはllama.cppを使用（ローカル環境のみがターゲット）
-- ファイルサイズの上限は16MB
+- ファイルサイズの上限は20MB
 - 日本語フォントはIPAex明朝を使用

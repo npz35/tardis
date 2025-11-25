@@ -5,13 +5,13 @@
 
 import os
 import logging
-from typing import List, Dict, Any, Tuple, Optional
+from typing import Any, Optional
 from dataclasses import dataclass
 import pdfplumber
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from reportlab.lib.colors import red, blue, green, black, lightgreen, Color
-from app.data_model import BBox, PageAnalyzeData, TextArea, TextBlock, FontInfo, BBoxRL, Area
+from app.data_model import BBox, PageAnalyzeData, TextArea, TextBlock, FontInfo, BBox, Area
 from app.pdf_text_extractor import PdfTextExtractor
 from app.config import Config
 from app.text.pdfplumber import PdfplumberAnalyzer
@@ -26,6 +26,8 @@ class PdfAreaSeparator:
     # 画像ブロックのY座標範囲とテキストブロックが重なるか、または非常に近いかをチェックするのだ
     # Y軸方向の許容誤差を設けるのだ
     Y_TOLERANCE = 999.0 # 隣接
+    X_TOLERANCE_OVERLAP = -0.5
+    Y_TOLERANCE_OVERLAP = -0.5
     Y_TOLERANCE_BLOCK_MERGE = 2.0 # 隣接
     X_TOLERANCE_BLOCK_MERGE = 5.0 # 左右のテキストブロック統合時のX方向の許容誤差なのだ
     X_SPARSE_RATIO = 0.7
@@ -33,48 +35,40 @@ class PdfAreaSeparator:
     def __init__(self, output_folder: str):
         self.logger: logging.Logger = logging.getLogger(__name__)
         self.output_folder = output_folder
-        self.pdf_text_extractor = PdfTextExtractor()
-        self.pdf_column_separator = PdfColumnSeparator(output_folder)
-        self.pdfplumber_analyzer = PdfplumberAnalyzer()
 
-    def _is_overlapping(self, target_bbox: BBox, text_block_bboxes: List[BBox]) -> bool:
-        """
+        self.pdf_column_separator = PdfColumnSeparator()
+
+        # self.pdfminer_analyzer = PdfminerAnalyzer()
+        self.pdfplumber_analyzer = PdfplumberAnalyzer()
+        # self.pypdf_analyzer = PyPdfAnalyzer()
+        # self.unstructured_analyzer = UnstructuredAnalyzer()
+
+    def _is_overlapping(self, target_bbox: BBox, text_block_bboxes: list[BBox]) -> bool:
+        '''
         指定されたBBoxがテキストブロックのBBoxリストのいずれかと重なっているかを判定するのだ。
-        """
+        '''
         for text_bbox in text_block_bboxes:
             # 重なっていない条件:
             # 1. target_bboxがtext_bboxの左にある
             # 2. target_bboxがtext_bboxの右にある
             # 3. target_bboxがtext_bboxの下にある
             # 4. target_bboxがtext_bboxの上にある
-            if not (target_bbox.x1 <= text_bbox.x0 or
-                    text_bbox.x1 <= target_bbox.x0 or
-                    target_bbox.y1 <= text_bbox.y0 or
-                    text_bbox.y1 <= target_bbox.y0):
+            if not (target_bbox.x1 + self.X_TOLERANCE_OVERLAP <= text_bbox.x0 or
+                    text_bbox.x1 + self.X_TOLERANCE_OVERLAP <= target_bbox.x0 or
+                    target_bbox.y1 + self.Y_TOLERANCE_OVERLAP <= text_bbox.y0 or
+                    text_bbox.y1 + self.Y_TOLERANCE_OVERLAP <= target_bbox.y0):
+                self.logger.debug(f'overlap {target_bbox} and text_bbox={text_bbox}')
                 return True # 重なっているのだ
         return False # 重なっていないのだ
 
-    def _convert_bbox_to_reportlab_coords(self, bbox: BBox, page_height: float) -> 'BBoxRL':
-        """
-        pdfplumberのbbox座標をReportLabの座標に変換し、BBoxRLインスタンスとして返すのだ。
-        pdfplumberは左下原点、ReportLabも左下原点だが、Y軸の向きが異なる場合があるため調整する。
-        """
-        # pdfplumberとReportLabはどちらも左下原点、Y軸上向きなので、Y座標の変換は不要なのだ
-        x = bbox.x0
-        y = bbox.y0
-        width = bbox.x1 - bbox.x0
-        height = bbox.y1 - bbox.y0
-        
-        return BBoxRL(x=x, y=y, width=width, height=height)
-
-    def _identify_figures_and_tables(self, page_width: float, page_height: float, text_block_bboxes: List[BBox], rect_bboxes: List[BBox], image_bboxes: List[BBox], page_analyze_data: PageAnalyzeData) -> Tuple[List[BBox], List[BBox], List[BBox]]:
-        """
+    def _identify_figures_and_tables(self, page_width: float, page_height: float, text_block_bboxes: list[BBox], rect_bboxes: list[BBox], image_bboxes: list[BBox], page_analyze_data: PageAnalyzeData) -> tuple[list[BBox], list[BBox], list[BBox]]:
+        '''
         テキストブロック以外の領域から図や表を識別するのだ。
         列の境界がある場合は、左右の領域で個別に判定し、1列組と2列組の図を分けて返すのだ。
-        """
-        single_column_figures: List[BBox] = []
-        two_column_figures: List[BBox] = []
-        tables: List[BBox] = [] # テーブルは色分けしないので1つのリストで良いのだ
+        '''
+        single_column_figures: list[BBox] = []
+        two_column_figures: list[BBox] = []
+        tables: list[BBox] = [] # テーブルは色分けしないので1つのリストで良いのだ
 
         # 列の境界がある場合は、左右の領域で個別に判定するのだ
         # 2列組の境界データが存在する場合
@@ -110,6 +104,19 @@ class PdfAreaSeparator:
             left_image_bboxes = [bbox for bbox in two_column_region_image_bboxes if bbox.x1 <= column_boundary_x]
             right_image_bboxes = [bbox for bbox in two_column_region_image_bboxes if bbox.x0 >= column_boundary_x]
 
+            self.logger.debug(f'top_region_text_blocks size : {len(top_region_text_blocks)}')
+            self.logger.debug(f'top_region_rect_bboxes size : {len(top_region_rect_bboxes)}')
+            self.logger.debug(f'top_region_image_bboxes size: {len(top_region_image_bboxes)}')
+            self.logger.debug(f'two_column_region_text_blocks size : {len(two_column_region_text_blocks)}')
+            self.logger.debug(f'two_column_region_rect_bboxes size : {len(two_column_region_rect_bboxes)}')
+            self.logger.debug(f'two_column_region_image_bboxes size: {len(two_column_region_image_bboxes)}')
+            self.logger.debug(f'left_text_block_bboxes size: {len(left_text_block_bboxes)}')
+            self.logger.debug(f'left_rect_bboxes size      : {len(left_rect_bboxes)}')
+            self.logger.debug(f'left_image_bboxes size     : {len(left_image_bboxes)}')
+            self.logger.debug(f'right_text_block_bboxes size: {len(right_text_block_bboxes)}')
+            self.logger.debug(f'right_rect_bboxes size      : {len(right_rect_bboxes)}')
+            self.logger.debug(f'right_image_bboxes size     : {len(right_image_bboxes)}')
+
             self.logger.debug('left process region')
             left_figures, left_tables = self._process_region(page_width, page_height, left_text_block_bboxes, left_rect_bboxes, left_image_bboxes)
             two_column_figures.extend(left_figures)
@@ -131,14 +138,14 @@ class PdfAreaSeparator:
             single_column_figures.extend(bottom_figures)
             tables.extend(bottom_tables)
 
-            self.logger.debug(f"top_figures   : {top_figures}")
-            self.logger.debug(f"top_tables    : {top_tables}")
-            self.logger.debug(f"left_figures  : {left_figures}")
-            self.logger.debug(f"left_tables   : {left_tables}")
-            self.logger.debug(f"right_figures : {right_figures}")
-            self.logger.debug(f"right_tables  : {right_tables}")
-            self.logger.debug(f"bottom_figures: {bottom_figures}")
-            self.logger.debug(f"bottom_tables : {bottom_tables}")
+            self.logger.debug(f'top_figures   : {top_figures}')
+            self.logger.debug(f'top_tables    : {top_tables}')
+            self.logger.debug(f'left_figures  : {left_figures}')
+            self.logger.debug(f'left_tables   : {left_tables}')
+            self.logger.debug(f'right_figures : {right_figures}')
+            self.logger.debug(f'right_tables  : {right_tables}')
+            self.logger.debug(f'bottom_figures: {bottom_figures}')
+            self.logger.debug(f'bottom_tables : {bottom_tables}')
         else:
             # 列の境界がない場合は、ページ全体で判定するのだ
             self.logger.debug('full process region')
@@ -146,14 +153,14 @@ class PdfAreaSeparator:
             single_column_figures.extend(page_figures)
             tables.extend(page_tables)
 
-            self.logger.debug(f"page_figures: {page_figures}")
-            self.logger.debug(f"page_tables : {page_tables}")
+            self.logger.debug(f'page_figures: {page_figures}')
+            self.logger.debug(f'page_tables : {page_tables}')
         
         return single_column_figures, two_column_figures, tables
 
-    def _process_region(self, page_width: float, page_height: float, text_block_bboxes: List[BBox], page_rect_bboxes: List[BBox], page_image_bboxes: List[BBox]) -> Tuple[List[BBox], List[BBox]]:
-        region_figures: List[BBox] = []
-        region_tables: List[BBox] = []
+    def _process_region(self, page_width: float, page_height: float, text_block_bboxes: list[BBox], page_rect_bboxes: list[BBox], page_image_bboxes: list[BBox]) -> tuple[list[BBox], list[BBox]]:
+        region_figures: list[BBox] = []
+        region_tables: list[BBox] = []
 
         # rects の処理
         for rect_bbox in page_rect_bboxes:
@@ -190,12 +197,12 @@ class PdfAreaSeparator:
             short_height = image_height <= self.MIN_HEIGHT_THRESHOLD
             long_width = image_width >= page_width * self.MAX_WIDTH_RATIO_THRESHOLD
 
-            self.logger.debug(f"has_adjacent_text_block: {has_adjacent_text_block}")
-            self.logger.debug(f"short_height: {short_height}")
-            self.logger.debug(f"long_width: {long_width}")
+            self.logger.debug(f'has_adjacent_text_block: {has_adjacent_text_block}')
+            self.logger.debug(f'short_height: {short_height}')
+            self.logger.debug(f'long_width: {long_width}')
 
             if (has_adjacent_text_block and short_height and long_width):
-                self.logger.debug(f"Excluding image bbox due to adjacent text, small height, and large width: {image_bbox}")
+                self.logger.debug(f'Excluding image bbox due to adjacent text, small height, and large width: {image_bbox}')
                 continue # この画像ブロックは除外するのだ
 
             is_overlapping_with_text = self._is_overlapping(image_bbox, text_block_bboxes)
@@ -205,13 +212,13 @@ class PdfAreaSeparator:
         
         return region_figures, region_tables
 
-    def _create_text_block_from_words(self, words: List[TextBlock], page_number: int) -> TextBlock:
+    def _create_text_block_from_words(self, words: list[TextBlock], page_idx: int) -> TextBlock:
         if not words:
             return TextBlock(
                 text='',
                 bbox=BBox(x0=0, y0=0, x1=0, y1=0), # BBoxオブジェクトとして返すのだ
                 font_info=FontInfo(name='unknown', size=0.0, is_bold=False, is_italic=False),
-                page_number=page_number,
+                page_number=page_idx + 1,
             )
         
         # 全ての単語のbboxを結合して、新しいテキストブロックのbboxを計算するのだ
@@ -221,14 +228,14 @@ class PdfAreaSeparator:
         max_y1 = max(word.bbox.y1 for word in words)
         
         # テキストを結合するのだ
-        combined_text = " ".join(word.text for word in words)
+        combined_text = ' '.join(word.text for word in words)
 
         # 最も頻繁に出現するフォント情報を取得するのだ
         font_names = [word.font_info.name for word in words if word.font_info.name]
         font_sizes = [word.font_info.size for word in words if word.font_info.size > 0]
 
         # 最頻値を取得するヘルパー関数なのだ
-        def get_most_common(items: List[Any]) -> Any:
+        def get_most_common(items: list[Any]) -> Any:
             if not items:
                 return None
             from collections import Counter
@@ -248,29 +255,32 @@ class PdfAreaSeparator:
         return TextBlock(
             text=combined_text,
             bbox=BBox(x0=min_x0, y0=min_y0, x1=max_x1, y1=max_y1),
-            page_number=page_number,
+            page_number=page_idx + 1,
             font_info=font_info
         )
 
-    def _combine_words_to_text_blocks(self, all_page_text_blocks: List[List[TextBlock]], page_analyze_data_list: List[PageAnalyzeData]) -> Tuple[List[TextBlock], List[List[BBox]]]:
-        combined_text_blocks: List[TextBlock] = []
-        all_page_guess_figure_bboxes: List[List[BBox]] = []
+    def _combine_words_to_text_blocks(self, all_page_text_blocks: list[list[TextBlock]], page_analyze_data_list: list[PageAnalyzeData]) -> tuple[list[TextBlock], list[list[BBox]]]:
+        combined_text_blocks: list[TextBlock] = []
+        all_page_guess_figure_bboxes: list[list[BBox]] = []
         
-        for idx, page_text_blocks in enumerate(all_page_text_blocks):
-            self.logger.debug(f'idx: {idx}')
-            sorted_page_text_blocks: List[TextBlock] = sorted(page_text_blocks, key=lambda w: (w.bbox.y0, w.bbox.x0))
-            page_analyze_data = next((data for data in page_analyze_data_list if data.page_num == idx), None)
+        for page_idx, page_text_blocks in enumerate(all_page_text_blocks):
+            if Config.MAX_PDF_PAGES <= page_idx:
+                break
 
-            page_guess_figure_bboxes: List[BBox] = []
+            self.logger.debug(f'page_idx: {page_idx}')
+            sorted_page_text_blocks: list[TextBlock] = sorted(page_text_blocks, key=lambda w: (w.bbox.y0, w.bbox.x0))
+            page_analyze_data = next((data for data in page_analyze_data_list if data.page_idx == page_idx), None)
+
+            page_guess_figure_bboxes: list[BBox] = []
 
             if not page_analyze_data:
-                self.logger.warning(f"Page analyze data not found for page {idx}. Skipping text block combination for this page.")
+                self.logger.warning(f'Page analyze data not found for page {page_idx}. Skipping text block combination for this page.')
                 continue
 
             # 2. 各ページで、Y座標が近い単語を同じ行としてグループ化するのだ
-            lines: List[List[TextBlock]] = []
+            lines: list[list[TextBlock]] = []
             if sorted_page_text_blocks:
-                current_line: List[TextBlock] = [sorted_page_text_blocks[0]]
+                current_line: list[TextBlock] = [sorted_page_text_blocks[0]]
                 for i in range(1, len(sorted_page_text_blocks)):
                     # 同じ行とみなすY座標の許容範囲を設定するのだ
                     # ここでは、前の単語の高さの半分を許容範囲とするのだ
@@ -389,7 +399,7 @@ class PdfAreaSeparator:
                         page_guess_figure_bboxes.append(BBox(x0=min_x0, y0=min_y0, x1=max_x1, y1=max_y1)) # BBoxオブジェクトとして追加するのだ
                         continue # 図とみなされた行はテキストブロックとして処理しないのだ
                 
-                current_block_words: List[TextBlock] = []
+                current_block_words: list[TextBlock] = []
                 for i, word in enumerate(line_words):
                     if not current_block_words:
                         current_block_words.append(word)
@@ -411,23 +421,23 @@ class PdfAreaSeparator:
                             current_block_words.append(word)
                         else:
                             if current_block_words:
-                                combined_text_blocks.append(self._create_text_block_from_words(current_block_words, idx))
+                                combined_text_blocks.append(self._create_text_block_from_words(current_block_words, page_idx))
                             current_block_words = [word]
                 
                 if current_block_words:
-                    combined_text_blocks.append(self._create_text_block_from_words(current_block_words, idx))
+                    combined_text_blocks.append(self._create_text_block_from_words(current_block_words, page_idx))
 
             all_page_guess_figure_bboxes.append(page_guess_figure_bboxes)
             
             # 左右に隣接するテキストブロックを統合するのだ
             # 同じページ内のブロックのみを対象にするのだ
-            page_blocks = [block for block in combined_text_blocks if block.page_number == idx]
+            page_blocks = [block for block in combined_text_blocks if block.page_number == page_idx]
             
             # 統合処理を繰り返すのだ。なぜなら、統合によってさらに統合可能なブロックが生まれる可能性があるからなのだ。
             # 統合処理は、結合可能なブロックがなくなるまで繰り返すのだ
             while True:
                 merged_any_block_in_page = False
-                new_page_blocks: List[Dict[str, Any]] = []
+                new_page_blocks: list[TextBlock] = []
                 
                 # 統合済みのブロックを追跡するセットなのだ
                 merged_indices = set()
@@ -463,7 +473,7 @@ class PdfAreaSeparator:
                                 x1=max(block1.bbox.x1, block2.bbox.x1),
                                 y1=max(block1.bbox.y1, block2.bbox.y1)
                             )
-                            merged_text = f"{block1.text} {block2.text}" # テキストも結合するのだ
+                            merged_text = f'{block1.text} {block2.text}' # テキストも結合するのだ
                             
                             # 結合可能な場合、新しいブロックを作成するのだ
                             # 統合されたブロックのfont_infoは、結合元のブロックのfont_infoを引き継ぐのだ
@@ -473,7 +483,7 @@ class PdfAreaSeparator:
                                 text=merged_text,
                                 bbox=merged_bbox,
                                 font_info=merged_font_info,
-                                page_number=idx,
+                                page_number=page_idx,
                             ))
                             merged_indices.add(i)
                             merged_indices.add(j)
@@ -493,7 +503,7 @@ class PdfAreaSeparator:
             
             # 統合されたブロックを全体のリストに反映するのだ
             # まず、現在のページに属する既存のブロックを削除するのだ
-            combined_text_blocks = [block for block in combined_text_blocks if block.page_number != idx]
+            combined_text_blocks = [block for block in combined_text_blocks if block.page_number != page_idx]
             # 次に、統合された新しいブロックを追加するのだ
             combined_text_blocks.extend(page_blocks)
             
@@ -502,128 +512,159 @@ class PdfAreaSeparator:
 
         return combined_text_blocks, all_page_guess_figure_bboxes
 
-    def extract_area_infos(self, input_pdf_path: str) -> List[List[Area]]:
-        """
+    def extract_pazesizes(self, input_pdf_path: str) -> list[tuple[float, float]]:
+        self.logger.debug(f"Function start: extract_pazesizes(input_pdf_path='{input_pdf_path}')")
+
+        if Config.TEXT_EXTRACTION_METHOD == 'pdfminer':
+            raise NotImplementedError('Not implement yet.')
+        elif Config.TEXT_EXTRACTION_METHOD == 'pdfplumber':
+            all_page_sizes = self.pdfplumber_analyzer.extract_pazesizes(input_pdf_path)
+        elif Config.TEXT_EXTRACTION_METHOD == 'pypdf':
+            raise NotImplementedError('Not implement yet.')
+        elif Config.TEXT_EXTRACTION_METHOD == 'unstructured':
+            raise NotImplementedError('Not implement yet.')
+        elif Config.TEXT_EXTRACTION_METHOD == 'hybrid_pdfminer_pypdf':
+            raise NotImplementedError('Not implement yet.')
+        else:
+            raise ValueError(f'Unknown text extraction method: {Config.TEXT_EXTRACTION_METHOD}')
+
+        self.logger.debug(f'Function end: extract_pazesizes. Extracted {len(all_page_sizes)} pages.')
+        return all_page_sizes
+
+    def extract_area_infos(self, input_pdf_path: str) -> list[list[Area]]:
+        '''
         PDFからテキスト領域と図表領域を抽出し、描画情報を収集するのだ。
         pre_extracted_text_blocksが指定された場合、それを使用してテキストブロックを構成するのだ。
-        """
-        all_page_areas: List[List[Area]] = []
+        '''
+        all_page_sizes: list[tuple[float, float]] = []
+        all_page_areas: list[list[Area]] = []
+        all_page_rect_blocks: list[list[BBox]] = []
+        all_page_image_blocks: list[list[BBox]] = []
 
         page_width, page_height = self.pdfplumber_analyzer.extract_pazesizes(input_pdf_path)[0]
 
         page_analyze_data_list = self.pdf_column_separator.analyze_separation_lines(input_pdf_path)
         
-        # guess_figure_bboxes: List[List[BBox]] = []
+        # guess_figure_bboxes: list[list[BBox]] = []
 
-        if Config.TEXT_EXTRACTION_METHOD == "pdfplumber":
+        if Config.TEXT_EXTRACTION_METHOD == 'pdfminer':
+            raise NotImplementedError('Not implement yet.')
+        elif Config.TEXT_EXTRACTION_METHOD == 'pdfplumber':
+            all_page_sizes = self.pdfplumber_analyzer.extract_pazesizes(input_pdf_path)
             all_page_text_areas = self.pdfplumber_analyzer.extract_textareas(input_pdf_path)
+            all_page_rect_blocks = self.pdfplumber_analyzer.extract_rect_blocks(input_pdf_path)
+            all_page_image_blocks = self.pdfplumber_analyzer.extract_image_blocks(input_pdf_path)
             # TODO
             # guess_figure_bboxes = self._guess_figure_bboxes(all_page_text_areas, page_analyze_data_list)
-        elif Config.TEXT_EXTRACTION_METHOD == "unstructured":
-            raise NotImplementedError("Not implement yet.")
-        elif Config.TEXT_EXTRACTION_METHOD == "pypdf":
-            raise NotImplementedError("Not implement yet.")
-        elif Config.TEXT_EXTRACTION_METHOD == "hybrid_pdfminer_pypdf":
-            raise NotImplementedError("Not implement yet.")
+        elif Config.TEXT_EXTRACTION_METHOD == 'pypdf':
+            raise NotImplementedError('Not implement yet.')
+        elif Config.TEXT_EXTRACTION_METHOD == 'unstructured':
+            raise NotImplementedError('Not implement yet.')
+        elif Config.TEXT_EXTRACTION_METHOD == 'hybrid_pdfminer_pypdf':
+            raise NotImplementedError('Not implement yet.')
         else:
-            raise ValueError(f"Unknown text extraction method: {Config.TEXT_EXTRACTION_METHOD}")
-
-        self.pdfplumber_analyzer.extract_textareas(input_pdf_path)
-        self.pdfplumber_analyzer.extract_rect_blocks(input_pdf_path)
-        self.pdfplumber_analyzer.extract_image_blocks(input_pdf_path)
+            raise ValueError(f'Unknown text extraction method: {Config.TEXT_EXTRACTION_METHOD}')
+        
+        self.logger.debug(f'all_page_sizes       : {all_page_sizes}')
+        self.logger.debug(f'all_page_text_areas  : {[[area.bbox for area in page_text_areas] for page_text_areas in all_page_text_areas]}')
+        self.logger.debug(f'all_page_rect_blocks : {all_page_rect_blocks}')
+        self.logger.debug(f'all_page_image_blocks: {all_page_image_blocks}')
 
         # 2. ページごとのエリア情報を収集するためのループなのだ
-        for idx in range(len(all_page_text_areas)):
-            page_width, page_height = self.pdfplumber_analyzer.all_page_sizes[idx]
+        for page_idx in range(len(all_page_sizes)):
+            if Config.MAX_PDF_PAGES <= page_idx:
+                break
 
-            self.logger.debug(f'current idx: {idx}')
+            page_number = page_idx + 1
+            page_width, page_height = all_page_sizes[page_idx]
 
-            text_areas = self.pdfplumber_analyzer.all_page_text_areas[idx]
-            page_analyze_data = page_analyze_data_list[idx]
-            text_bboxes = [area.bbox for area in text_areas]
-            rect_bboxes = self.pdfplumber_analyzer.all_page_rect_blocks[idx]
-            image_bboxes = self.pdfplumber_analyzer.all_page_image_blocks[idx]
+            self.logger.debug(f'current page_idx: {page_idx}')
+
+            page_text_areas = all_page_text_areas[page_idx]
+            page_analyze_data = page_analyze_data_list[page_idx]
+            text_bboxes = [area.bbox for area in page_text_areas]
+            rect_bboxes = all_page_rect_blocks[page_idx]
+            image_bboxes = all_page_image_blocks[page_idx]
 
             single_column_figures, two_column_figures, tables_bboxes = self._identify_figures_and_tables(
                 page_width, page_height, text_bboxes, rect_bboxes, image_bboxes, page_analyze_data
             )
-            # single_column_figures.extend(guess_figure_bboxes[idx]) # TODO
+            # single_column_figures.extend(guess_figure_bboxes[page_idx]) # TODO
 
             # テキストブロックにIDを割り振るのだ
-            page_areas: List[Area] = []
-            for i, text_area in enumerate(text_areas):
-                bbox_obj = text_area.bbox
-                bbox_rl = self._convert_bbox_to_reportlab_coords(bbox_obj, page_height)
+            page_areas: list[Area] = []
+            for i, text_area in enumerate(page_text_areas):
+                bbox = text_area.bbox
 
                 text = text_area.text()
                 font_info = text_area.blocks[0].font_info # TODO
                 if not text.strip():
                     color_to_draw = black
-                    self.logger.debug(f"Prepare to draw black rect for empty text block ({bbox_rl})")
+                    self.logger.debug(f'Prepare to draw black rect for empty text block ({bbox})')
                 else:
                     color_to_draw = red
-                    self.logger.debug(f"Prepare to draw red rect ({bbox_rl}), text: {text}")
+                    self.logger.debug(f'Prepare to draw red rect ({bbox}), text: {text}')
                 
                 page_areas.append(
-                    Area(color=color_to_draw, rect=bbox_rl, text=text, block_id=i + 1, font_info=font_info) # 1から始まるIDを振り、font_infoを追加するのだ
+                    Area(page_number=page_number, color=color_to_draw, bbox=bbox, text=text, block_id=i + 1, font_info=font_info) # 1から始まるIDを振り、font_infoを追加するのだ
                 )
 
-            self.logger.debug(f"tables_bboxes size        : {len(tables_bboxes)}")
-            self.logger.debug(f"single_column_figures size: {len(single_column_figures)}")
-            self.logger.debug(f"two_column_figures size   : {len(two_column_figures)}")
+            self.logger.debug(f'tables_bboxes size        : {len(tables_bboxes)}')
+            self.logger.debug(f'single_column_figures size: {len(single_column_figures)}')
+            self.logger.debug(f'two_column_figures size   : {len(two_column_figures)}')
 
-            for bbox_obj in tables_bboxes:
-                bbox_rl = self._convert_bbox_to_reportlab_coords(bbox_obj, page_height)
+            for bbox in tables_bboxes:
                 color_to_draw = blue
-                self.logger.debug(f"Prepare to draw blue rect ({bbox_rl})")
+                self.logger.debug(f'Prepare to draw blue rect ({bbox})')
                 page_areas.append(
-                    Area(color=color_to_draw, rect=bbox_rl)
+                    Area(page_number=page_number, color=color_to_draw, bbox=bbox)
                 )
             
-            for bbox_obj in single_column_figures:
-                bbox_rl = self._convert_bbox_to_reportlab_coords(bbox_obj, page_height)
+            for bbox in single_column_figures:
                 color_to_draw = green
-                self.logger.debug(f"Prepare to draw green rect ({bbox_rl})")
+                self.logger.debug(f'Prepare to draw green rect ({bbox})')
                 page_areas.append(
-                    Area(color=color_to_draw, rect=bbox_rl)
+                    Area(page_number=page_number, color=color_to_draw, bbox=bbox)
                 )
 
-            for bbox_obj in two_column_figures:
-                bbox_rl = self._convert_bbox_to_reportlab_coords(bbox_obj, page_height)
+            for bbox in two_column_figures:
                 color_to_draw = lightgreen
-                self.logger.debug(f"Prepare to draw lightgreen rect ({bbox_rl})")
+                self.logger.debug(f'Prepare to draw lightgreen rect ({bbox})')
                 page_areas.append(
-                    Area(color=color_to_draw, rect=bbox_rl)
+                    Area(page_number=page_number, color=color_to_draw, bbox=bbox)
                 )
             
             all_page_areas.append(page_areas)
     
         return all_page_areas
 
-    def _draw_colored_pdf(self, output_filepath: str, all_page_areas: List[List[Area]]) -> str:
-        """
+    def _draw_colored_pdf(self, output_filepath: str, all_page_areas: list[list[Area]]) -> str:
+        '''
         収集した描画コマンドに基づいて色分けされたPDFを生成するのだ。
-        """
+        '''
         c = canvas.Canvas(output_filepath, pagesize=letter)
 
-        for idx, page_areas in enumerate(all_page_areas):
-            page_width, page_height = self.pdfplumber_analyzer.all_page_sizes[idx]
+        for page_idx, page_areas in enumerate(all_page_areas):
+            if Config.MAX_PDF_PAGES <= page_idx:
+                break
+
+            page_width, page_height = self.pdfplumber_analyzer.all_page_sizes[page_idx]
             c.setPageSize((page_width, page_height))
 
             for area_info in page_areas:
                 color = area_info.color
-                bbox_rl = area_info.rect
+                bbox = area_info.bbox
                 
                 c.setFillColor(color)
-                c.rect(bbox_rl.x, bbox_rl.y, bbox_rl.width, bbox_rl.height, fill=1)
+                c.rect(bbox.x0, bbox.y0, bbox.width(), bbox.height(), fill=1)
 
                 # テキストブロックのIDを描画するのだ
                 if area_info.block_id is not None:
                     c.setFillColor(black) # IDは黒で描画するのだ
                     c.setFont('Helvetica', 10) # フォントとサイズを設定するのだ
                     # ブロックの中央にIDを描画するのだ
-                    text_x = bbox_rl.x + bbox_rl.width / 2
-                    text_y = bbox_rl.y + bbox_rl.height / 2 - 5 # 少し上にずらすのだ
+                    text_x = bbox.x0 + bbox.width() / 2
+                    text_y = bbox.y0 + bbox.height() / 2 - 5 # 少し上にずらすのだ
                     c.drawCentredString(text_x, text_y, str(area_info.block_id))
             
             c.showPage()
@@ -632,9 +673,9 @@ class PdfAreaSeparator:
         return output_filepath
 
     def create_colored_pdf(self, input_pdf_path: str, output_pdf_path: str) -> str:
-        """
+        '''
         入力PDFのテキスト領域と図表領域を色分けして新しいPDFを生成する。
-        """
+        '''
         output_filepath = os.path.join(self.output_folder, os.path.basename(output_pdf_path))
         
         all_page_areas = self.extract_area_infos(input_pdf_path)

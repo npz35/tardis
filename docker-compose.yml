@@ -2,11 +2,12 @@ services:
   app:
     build: .
     ports:
-      - "5000:5000"
+      - "9222:5000"
     volumes:
       - ./app:/app/app
       - ./logs:/app/logs
       - ./outputs:/app/outputs
+      - ./samples:/app/samples
       - ./static:/app/static
       - ./templates:/app/templates
       - ./tests:/app/tests

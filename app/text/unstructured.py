@@ -4,11 +4,10 @@
 # This file may not be used except in accordance with the NOTICE.
 
 import logging
-from typing import List, Dict, Any, Tuple
 from unstructured.partition.pdf import partition_pdf
 
 from app.text.common import PdfAnalyzer
-from app.data_model import BBox, TextBlock, PageAnalyzeData, FontInfo
+from app.data_model import BBox, TextArea, TextBlock
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -16,9 +15,12 @@ class UnstructuredAnalyzer(PdfAnalyzer):
     def __init__(self):
         super().__init__()
 
-    def extract_textblocks(self, pdf_path: str) -> List[List[TextBlock]]:
+    def extract_pazesizes(self, pdf_path: str) -> list[tuple[float, float]]:
+        raise NotImplementedError('extract_pazesizes is not implemented for UnstructuredAnalyzer yet.')
+
+    def extract_textblocks(self, pdf_path: str) -> list[list[TextBlock]]:
         logger.debug(f"Function start: extract_textblocks(pdf_path='{pdf_path}')")
-        extracted_data: List[List[TextBlock]] = []
+        extracted_data: list[list[TextBlock]] = []
 
         try:
             # Use unstructured to partition the PDF
@@ -57,16 +59,25 @@ class UnstructuredAnalyzer(PdfAnalyzer):
                         page_number=page_number,
                     )
                     # For now, we'll put each TextBlock in its own list,
-                    # as the return type expects List[List[TextBlock]].
+                    # as the return type expects list[list[TextBlock]].
                     # Further logic might be needed to group them into meaningful blocks.
                     extracted_data.append([text_block])
 
         except Exception as e:
-            logger.error(f"Error extracting text with unstructured from {pdf_path}: {e}")
+            logger.error(f'Error extracting text with unstructured from {pdf_path}: {e}')
             raise
 
-        logger.debug(f"Function end: extract_text_with_positions. Extracted {len(extracted_data)} elements.")
+        logger.debug(f'Function end: extract_text_with_positions. Extracted {len(extracted_data)} elements.')
         return extracted_data
 
-    def crop_textblock(self, pdf_path: str, page_number: int) -> List[TextBlock]:
-        raise NotImplementedError("UnstructuredAnalyzer does not implement extract_textblock yet.")
+    def extract_textareas(self, pdf_path: str) -> list[list[TextArea]]:
+        raise NotImplementedError('extract_textareas is not implemented for UnstructuredAnalyzer yet.')
+
+    def extract_rect_blocks(self, pdf_path: str) -> list[list[BBox]]:
+        raise NotImplementedError('extract_rect_blocks is not implemented for UnstructuredAnalyzer yet.')
+
+    def extract_image_blocks(self, pdf_path: str) -> list[list[BBox]]:
+        raise NotImplementedError('extract_image_blocks is not implemented for UnstructuredAnalyzer yet.')
+
+    def crop_textblock(self, pdf_path: str, page_number: int) -> list[TextBlock]:
+        raise NotImplementedError('UnstructuredAnalyzer does not implement extract_textblock yet.')

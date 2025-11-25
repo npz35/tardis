@@ -33,7 +33,7 @@
                     </div>
                     <h2>PDFファイルをアップロード</h2>
                     <p class="upload-text">ドラッグ＆ドロップまたはクリックしてファイルを選択</p>
-                    <p class="upload-hint">対応形式: PDFファイル（最大16MB）</p>
+                    <p class="upload-hint">対応形式: PDFファイル（最大20MB）</p>
                     <input type="file" id="fileInput" accept=".pdf" style="display: none;">
                     <button class="operation-button" id="selectButton">ファイルを選択</button>
                 </div>
@@ -54,6 +54,14 @@
                         <div class="file-meta">
                             <p class="file-name" id="fileName"></p>
                             <p class="file-size" id="fileSize"></p>
+                            <p class="file-pages" id="filePages"></p>
+                            <div id="pageWarning" class="warning-message" style="display: none;">
+                                <p>
+                                    警告: このPDFは最大ページ数を超えています。最初の
+                                    <span id="maxPageCount"></span>
+                                    ページのみが処理されます。
+                                </p>
+                            </div>
                         </div>
                         <button class="remove-button" id="removeButton">
                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
@@ -269,14 +277,62 @@
             document.getElementById('fileInput').addEventListener('change', function (e) {
                 const file = e.target.files[0];
                 if (file) {
-                    // ファイル情報を表示する
+                    // ファイル情報を表示する（初期状態）
                     document.getElementById('fileName').textContent = file.name;
                     document.getElementById('fileSize').textContent = formatFileSize(file.size);
+                    document.getElementById('filePages').textContent = `ページ数: 読み込み中...`; // 読み込み中を表示
                     document.getElementById('fileInfo').style.display = 'block';
-
-                    // アップロードエリアを非表示にする
                     document.getElementById('uploadArea').style.display = 'none';
-                    // 表示
+
+                    // 選択されたファイルを保存する
+                    window.selectedFile = file;
+
+                    // 新しい /upload エンドポイントにファイルを送信してページ数を取得するのだ
+                    const formData = new FormData();
+                    formData.append('file', file);
+
+                    fetch('/upload', {
+                        method: 'POST',
+                        body: formData
+                    })
+                        .then(response => {
+                            if (response.ok) {
+                                return response.json();
+                            } else {
+                                throw new Error('Upload failed');
+                            }
+                        })
+                        .then(data => {
+                            if (data.success) {
+                                document.getElementById('filePages').textContent = `ページ数: ${data.num_pages}`;
+                                // サーバーから返されたファイル名とユニークIDを保存するのだ
+                                window.uploadedFilename = data.filename;
+                                window.uploadedUniqueId = data.unique_id;
+                                // ファイルサイズもサーバーから返されたものに更新するのだ
+                                document.getElementById('fileSize').textContent = formatFileSize(data.file_size);
+
+                                // ページ数がmax_pdf_pagesを超えている場合に警告を表示するのだ
+                                if (data.num_pages > data.max_pdf_pages) {
+                                    const pageWarning = document.getElementById('pageWarning');
+                                    document.getElementById('maxPageCount').textContent = data.max_pdf_pages;
+                                    pageWarning.style.display = 'block';
+                                } else {
+                                    document.getElementById('pageWarning').style.display = 'none';
+                                }
+                            } else {
+                                document.getElementById('filePages').textContent = `ページ数: エラー`;
+                                alert('ファイルのアップロード中にエラーが発生しました。');
+                                resetUpload();
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error during file upload:', error);
+                            document.getElementById('filePages').textContent = `ページ数: エラー`;
+                            alert('ファイルのアップロード中にエラーが発生しました。もう一度お試しください。');
+                            resetUpload();
+                        });
+
+                    // ボタンを表示するのだ
                     document.getElementById('columnSeparationButton').style.display = 'block';
                     document.getElementById('areaColoringButton').style.display = 'block';
                     document.getElementById('extractTextButton').style.display = 'block';
@@ -284,16 +340,13 @@
                     document.getElementById('figureButton').style.display = 'block';
                     document.getElementById('drawTextButton').style.display = 'block';
                     document.getElementById('healthButton').style.display = 'block';
-
-                    // 選択されたファイルを保存する
-                    window.selectedFile = file;
                 }
             });
 
             // Click event for the figure button
             document.getElementById('figureButton').addEventListener('click', function () {
-                const file = window.selectedFile;
-                if (file) {
+                // const file = window.selectedFile; // ファイルは既にアップロード済みなので不要なのだ
+                if (window.uploadedFilename && window.uploadedUniqueId) {
                     // 翻訳セクションを表示する
                     document.getElementById('translationSection').style.display = 'block';
                     // 非表示
@@ -305,16 +358,16 @@
                     document.getElementById('drawTextButton').style.display = 'none';
                     document.getElementById('healthButton').style.display = 'none';
                     // デバッグ処理を開始する
-                    startFigureProcess(file);
+                    startFigureProcess();
                 } else {
-                    alert('選択されていません');
+                    alert('ファイルが選択されていません。');
                 }
             });
 
             // Click event for the text extraction button
             document.getElementById('extractTextButton').addEventListener('click', function () {
-                const file = window.selectedFile;
-                if (file) {
+                // const file = window.selectedFile; // ファイルは既にアップロード済みなので不要なのだ
+                if (window.uploadedFilename && window.uploadedUniqueId) {
                     // 翻訳セクションを表示する
                     document.getElementById('translationSection').style.display = 'block';
                     // 非表示
@@ -326,16 +379,16 @@
                     document.getElementById('drawTextButton').style.display = 'none';
                     document.getElementById('healthButton').style.display = 'none';
                     // テキスト抽出処理を開始する
-                    startExtractTextProcess(file);
+                    startExtractTextProcess();
                 } else {
-                    alert('選択されていません');
+                    alert('ファイルが選択されていません。');
                 }
             });
 
             // Click event for the text translation button
             document.getElementById('translateTextButton').addEventListener('click', function () {
-                const file = window.selectedFile;
-                if (file) {
+                // const file = window.selectedFile; // ファイルは既にアップロード済みなので不要なのだ
+                if (window.uploadedFilename && window.uploadedUniqueId) {
                     // 翻訳セクションを表示する
                     document.getElementById('translationSection').style.display = 'block';
                     // 非表示
@@ -347,16 +400,16 @@
                     document.getElementById('drawTextButton').style.display = 'none';
                     document.getElementById('healthButton').style.display = 'none';
                     // テキスト翻訳処理を開始する
-                    startTranslateTextProcess(file);
+                    startTranslateTextProcess();
                 } else {
-                    alert('選択されていません');
+                    alert('ファイルが選択されていません。');
                 }
             });
 
             // Click event for the draw text button
             document.getElementById('drawTextButton').addEventListener('click', function () {
-                const file = window.selectedFile;
-                if (file) {
+                // const file = window.selectedFile; // ファイルは既にアップロード済みなので不要なのだ
+                if (window.uploadedFilename && window.uploadedUniqueId) {
                     // 翻訳セクションを表示する
                     document.getElementById('translationSection').style.display = 'block';
                     // 非表示
@@ -368,16 +421,16 @@
                     document.getElementById('drawTextButton').style.display = 'none';
                     document.getElementById('healthButton').style.display = 'none';
                     // 翻訳処理を開始する
-                    startDrawTextProcess(file);
+                    startDrawTextProcess();
                 } else {
-                    alert('選択されていません');
+                    alert('ファイルが選択されていません。');
                 }
             });
 
             // Click event for the area coloring button
             document.getElementById('areaColoringButton').addEventListener('click', function () {
-                const file = window.selectedFile;
-                if (file) {
+                // const file = window.selectedFile; // ファイルは既にアップロード済みなので不要なのだ
+                if (window.uploadedFilename && window.uploadedUniqueId) {
                     // 翻訳セクションを表示する
                     document.getElementById('translationSection').style.display = 'block';
                     // 非表示
@@ -389,16 +442,16 @@
                     document.getElementById('drawTextButton').style.display = 'none';
                     document.getElementById('healthButton').style.display = 'none';
                     // 領域色分け処理を開始する
-                    startAreaColoringProcess(file);
+                    startAreaColoringProcess();
                 } else {
-                    alert('選択されていません');
+                    alert('ファイルが選択されていません。');
                 }
             });
 
             // Click event for the columnSeparation button
             document.getElementById('columnSeparationButton').addEventListener('click', function () {
-                const file = window.selectedFile;
-                if (file) {
+                // const file = window.selectedFile; // ファイルは既にアップロード済みなので不要なのだ
+                if (window.uploadedFilename && window.uploadedUniqueId) {
                     // 翻訳セクションを表示する
                     document.getElementById('translationSection').style.display = 'block';
                     // 非表示
@@ -410,9 +463,9 @@
                     document.getElementById('drawTextButton').style.display = 'none';
                     document.getElementById('healthButton').style.display = 'none';
                     // 段組み分離処理を開始する
-                    startSeparationProcess(file);
+                    startSeparationProcess();
                 } else {
-                    alert('選択されていません');
+                    alert('ファイルが選択されていません。');
                 }
             });
 
@@ -439,19 +492,8 @@
             });
 
             // 段組み分離処理を開始
-            function startSeparationProcess(file) {
-                // File validation
-                if (!file.name.toLowerCase().endsWith('.pdf')) {
-                    alert('PDFファイルのみ対応しています');
-                    resetUpload();
-                    return;
-                }
-
-                if (file.size > 16 * 1024 * 1024) {
-                    alert('ファイルサイズが16MBを超えています');
-                    resetUpload();
-                    return;
-                }
+            function startSeparationProcess() {
+                // ファイル情報は既に /upload エンドポイントで検証済みなので、ここでは不要なのだ
 
                 // Update status
                 updateStatus('段組み分離処理中...', 'processing');
@@ -459,7 +501,17 @@
 
                 // Upload process (for columnSeparation)
                 const formData = new FormData();
-                formData.append('file', file);
+                // formData.append('file', file); // ファイルは既にアップロード済みなので不要なのだ
+
+                // 既にアップロードされたファイルの情報を追加するのだ
+                if (window.uploadedFilename && window.uploadedUniqueId) {
+                    formData.append('filename', window.uploadedFilename);
+                    formData.append('unique_id', window.uploadedUniqueId);
+                } else {
+                    alert('ファイル情報が不足しています。再度ファイルをアップロードしてください。');
+                    resetUpload();
+                    return;
+                }
 
                 fetch('column_separation', {
                     method: 'POST',
@@ -522,19 +574,8 @@
             }
 
             // 領域色分け処理を開始
-            function startAreaColoringProcess(file) {
-                // File validation
-                if (!file.name.toLowerCase().endsWith('.pdf')) {
-                    alert('PDFファイルのみ対応しています');
-                    resetUpload();
-                    return;
-                }
-
-                if (file.size > 16 * 1024 * 1024) {
-                    alert('ファイルサイズが16MBを超えています');
-                    resetUpload();
-                    return;
-                }
+            function startAreaColoringProcess() {
+                // ファイル情報は既に /upload エンドポイントで検証済みなので、ここでは不要なのだ
 
                 // Update status
                 updateStatus('領域色分け処理中...', 'processing');
@@ -542,7 +583,17 @@
 
                 // Upload process (for area coloring)
                 const formData = new FormData();
-                formData.append('file', file);
+                // formData.append('file', file); // ファイルは既にアップロード済みなので不要なのだ
+
+                // 既にアップロードされたファイルの情報を追加するのだ
+                if (window.uploadedFilename && window.uploadedUniqueId) {
+                    formData.append('filename', window.uploadedFilename);
+                    formData.append('unique_id', window.uploadedUniqueId);
+                } else {
+                    alert('ファイル情報が不足しています。再度ファイルをアップロードしてください。');
+                    resetUpload();
+                    return;
+                }
 
                 fetch('/area_separation', {
                     method: 'POST',
@@ -605,19 +656,8 @@
             }
 
             // テキスト抽出処理を開始
-            function startExtractTextProcess(file) {
-                // File validation
-                if (!file.name.toLowerCase().endsWith('.pdf')) {
-                    alert('PDFファイルのみ対応しています');
-                    resetUpload();
-                    return;
-                }
-
-                if (file.size > 16 * 1024 * 1024) {
-                    alert('ファイルサイズが16MBを超えています');
-                    resetUpload();
-                    return;
-                }
+            function startExtractTextProcess() {
+                // ファイル情報は既に /upload エンドポイントで検証済みなので、ここでは不要なのだ
 
                 // Update status
                 updateStatus('テキスト抽出処理中...', 'processing');
@@ -625,7 +665,17 @@
 
                 // Upload process (for text extraction)
                 const formData = new FormData();
-                formData.append('file', file);
+                // formData.append('file', file); // ファイルは既にアップロード済みなので不要なのだ
+
+                // 既にアップロードされたファイルの情報を追加するのだ
+                if (window.uploadedFilename && window.uploadedUniqueId) {
+                    formData.append('filename', window.uploadedFilename);
+                    formData.append('unique_id', window.uploadedUniqueId);
+                } else {
+                    alert('ファイル情報が不足しています。再度ファイルをアップロードしてください。');
+                    resetUpload();
+                    return;
+                }
 
                 fetch('/extract_text', {
                     method: 'POST',
@@ -695,11 +745,11 @@
                                 })
                                 .catch(error => {
                                     console.error('Error fetching text file:', error);
-                                    extractedTextContent.textContent = 'テキストファイルの読み込みに失敗したのだ。';
+                                    extractedTextContent.textContent = 'テキストファイルの読み込みに失敗しました。';
                                     extractedTextDisplay.style.display = 'block';
                                 });
                         } else {
-                            extractedTextContent.textContent = 'テキストが抽出されなかったのだ。';
+                            extractedTextContent.textContent = 'テキストが抽出されませんでした。';
                             extractedTextDisplay.style.display = 'block';
                         }
 
@@ -707,8 +757,8 @@
                         if (data.processing_time) {
                             document.getElementById('processingTime').textContent = data.processing_time;
                         }
-                        if (data.extracted_text_blocks) {
-                            document.getElementById('translatedUnits').textContent = data.extracted_text_blocks;
+                        if (data.extracted_text_units) {
+                            document.getElementById('translatedUnits').textContent = `${data.extracted_text_units}(テキストブロック数)`;
                         }
                     })
                     .catch(error => {
@@ -720,19 +770,8 @@
             }
 
             // テキスト翻訳処理を開始
-            function startTranslateTextProcess(file) {
-                // File validation
-                if (!file.name.toLowerCase().endsWith('.pdf')) {
-                    alert('PDFファイルのみ対応しています');
-                    resetUpload();
-                    return;
-                }
-
-                if (file.size > 16 * 1024 * 1024) {
-                    alert('ファイルサイズが16MBを超えています');
-                    resetUpload();
-                    return;
-                }
+            function startTranslateTextProcess() {
+                // ファイル情報は既に /upload エンドポイントで検証済みなので、ここでは不要なのだ
 
                 // Update status
                 updateStatus('テキスト翻訳処理中...', 'processing');
@@ -740,7 +779,17 @@
 
                 // Upload process (for text translation)
                 const formData = new FormData();
-                formData.append('file', file);
+                // formData.append('file', file); // ファイルは既にアップロード済みなので不要なのだ
+
+                // 既にアップロードされたファイルの情報を追加するのだ
+                if (window.uploadedFilename && window.uploadedUniqueId) {
+                    formData.append('filename', window.uploadedFilename);
+                    formData.append('unique_id', window.uploadedUniqueId);
+                } else {
+                    alert('ファイル情報が不足しています。再度ファイルをアップロードしてください。');
+                    resetUpload();
+                    return;
+                }
 
                 fetch('/translate_text', {
                     method: 'POST',
@@ -810,11 +859,11 @@
                                 })
                                 .catch(error => {
                                     console.error('Error fetching translated text file:', error);
-                                    extractedTextContent.textContent = '翻訳済みテキストファイルの読み込みに失敗したのだ。';
+                                    extractedTextContent.textContent = '翻訳済みテキストファイルの読み込みに失敗しました。';
                                     extractedTextDisplay.style.display = 'block';
                                 });
                         } else {
-                            extractedTextContent.textContent = '翻訳済みテキストが抽出されなかったのだ。';
+                            extractedTextContent.textContent = '翻訳済みテキストが抽出されませんでした。';
                             extractedTextDisplay.style.display = 'block';
                         }
 
@@ -822,8 +871,8 @@
                         if (data.processing_time) {
                             document.getElementById('processingTime').textContent = data.processing_time;
                         }
-                        if (data.translated_text_blocks) {
-                            document.getElementById('translatedUnits').textContent = data.translated_text_blocks;
+                        if (data.translated_units) {
+                            document.getElementById('translatedUnits').textContent = data.translated_units;
                         }
                     })
                     .catch(error => {
@@ -835,30 +884,29 @@
             }
 
             // Start figure process (currently same as translation process)
-            function startFigureProcess(file) {
-                // File validation
-                if (!file.name.toLowerCase().endsWith('.pdf')) {
-                    alert('PDFファイルのみ対応しています');
-                    resetUpload();
-                    return;
-                }
-
-                if (file.size > 16 * 1024 * 1024) {
-                    alert('ファイルサイズが16MBを超えています');
-                    resetUpload();
-                    return;
-                }
+            function startFigureProcess() {
+                // ファイル情報は既に /upload エンドポイントで検証済みなので、ここでは不要なのだ
 
                 // Update status
                 updateStatus('画像処理中...', 'processing');
                 updateProgress(0); // PDF解析開始で0%
 
-                extractFigure(file);
+                extractFigure();
             }
 
-            function extractFigure(file) {
+            function extractFigure() {
                 const formData = new FormData();
-                formData.append('file', file);
+                // formData.append('file', file); // ファイルは既にアップロード済みなので不要なのだ
+
+                // 既にアップロードされたファイルの情報を追加するのだ
+                if (window.uploadedFilename && window.uploadedUniqueId) {
+                    formData.append('filename', window.uploadedFilename);
+                    formData.append('unique_id', window.uploadedUniqueId);
+                } else {
+                    alert('ファイル情報が不足しています。再度ファイルをアップロードしてください。');
+                    resetUpload();
+                    return;
+                }
 
                 // Reset progress bar
                 updateProgress(0);
@@ -927,19 +975,8 @@
             }
 
             // 翻訳処理を開始
-            function startDrawTextProcess(file) {
-                // File validation
-                if (!file.name.toLowerCase().endsWith('.pdf')) {
-                    alert('PDFファイルのみ対応しています');
-                    resetUpload();
-                    return;
-                }
-
-                if (file.size > 16 * 1024 * 1024) {
-                    alert('ファイルサイズが16MBを超えています');
-                    resetUpload();
-                    return;
-                }
+            function startDrawTextProcess() {
+                // ファイル情報は既に /upload エンドポイントで検証済みなので、ここでは不要なのだ
 
                 // Update status
                 updateStatus('翻訳処理中...', 'processing');
@@ -947,7 +984,17 @@
 
                 // Upload process (for drawing translated text)
                 const formData = new FormData();
-                formData.append('file', file);
+                // formData.append('file', file); // ファイルは既にアップロード済みなので不要なのだ
+
+                // 既にアップロードされたファイルの情報を追加するのだ
+                if (window.uploadedFilename && window.uploadedUniqueId) {
+                    formData.append('filename', window.uploadedFilename);
+                    formData.append('unique_id', window.uploadedUniqueId);
+                } else {
+                    alert('ファイル情報が不足しています。再度ファイルをアップロードしてください。');
+                    resetUpload();
+                    return;
+                }
 
                 fetch('/draw_text', {
                     method: 'POST',
@@ -1007,8 +1054,8 @@
                         if (data.processing_time) {
                             document.getElementById('processingTime').textContent = data.processing_time;
                         }
-                        if (data.drawn_text_blocks) {
-                            document.getElementById('translatedUnits').textContent = data.drawn_text_blocks;
+                        if (data.translated_units) {
+                            document.getElementById('translatedUnits').textContent = data.translated_units;
                         }
                     })
                     .catch(error => {
@@ -1045,7 +1092,7 @@
                         if (data && data.status) {
                             alert('Healthチェック結果: ' + data.status);
                         } else {
-                            alert('Healthチェック結果が取得できなかったのだ。');
+                            alert('Healthチェック結果が取得できませんでした。');
                         }
                     })
                     .catch(error => {
@@ -1250,18 +1297,62 @@
                 if (files.length) {
                     const file = files[0];
                     if (file.type === 'application/pdf') {
-                        // ファイル情報を表示
+                        // ファイル情報を表示する（初期状態）
                         document.getElementById('fileName').textContent = file.name;
                         document.getElementById('fileSize').textContent = formatFileSize(file.size);
+                        document.getElementById('filePages').textContent = `ページ数: 読み込み中...`; // 読み込み中を表示
                         document.getElementById('fileInfo').style.display = 'block';
-
-                        // アップロードエリアを非表示
                         document.getElementById('uploadArea').style.display = 'none';
 
-                        // 翻訳セクションはまだ表示しない
-                        // document.getElementById('translationSection').style.display = 'block';
+                        // 選択されたファイルを保存する
+                        window.selectedFile = file;
 
-                        // ファイル選択後に翻訳開始ボタンを表示する
+                        // 新しい /upload エンドポイントにファイルを送信してページ数を取得するのだ
+                        const formData = new FormData();
+                        formData.append('file', file);
+
+                        fetch('/upload', {
+                            method: 'POST',
+                            body: formData
+                        })
+                            .then(response => {
+                                if (response.ok) {
+                                    return response.json();
+                                } else {
+                                    throw new Error('Upload failed');
+                                }
+                            })
+                            .then(data => {
+                                if (data.success) {
+                                    document.getElementById('filePages').textContent = `ページ数: ${data.num_pages}`;
+                                    // サーバーから返されたファイル名とユニークIDを保存するのだ
+                                    window.uploadedFilename = data.filename;
+                                    window.uploadedUniqueId = data.unique_id;
+                                    // ファイルサイズもサーバーから返されたものに更新するのだ
+                                    document.getElementById('fileSize').textContent = formatFileSize(data.file_size);
+
+                                    // ページ数がmax_pdf_pagesを超えている場合に警告を表示するのだ
+                                    if (data.num_pages > data.max_pdf_pages) {
+                                        const pageWarning = document.getElementById('pageWarning');
+                                        document.getElementById('maxPageCount').textContent = data.max_pdf_pages;
+                                        pageWarning.style.display = 'block';
+                                    } else {
+                                        document.getElementById('pageWarning').style.display = 'none';
+                                    }
+                                } else {
+                                    document.getElementById('filePages').textContent = `ページ数: エラー`;
+                                    alert('ファイルのアップロード中にエラーが発生しました。');
+                                    resetUpload();
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error during file upload:', error);
+                                document.getElementById('filePages').textContent = `ページ数: エラー`;
+                                alert('ファイルのアップロード中にエラーが発生しました。もう一度お試しください。');
+                                resetUpload();
+                            });
+
+                        // ボタンを表示するのだ
                         document.getElementById('columnSeparationButton').style.display = 'block';
                         document.getElementById('areaColoringButton').style.display = 'block';
                         document.getElementById('extractTextButton').style.display = 'block';
@@ -1269,9 +1360,6 @@
                         document.getElementById('figureButton').style.display = 'block';
                         document.getElementById('drawTextButton').style.display = 'block';
                         document.getElementById('healthButton').style.display = 'block';
-
-                        // 選択されたファイルを保存する
-                        window.selectedFile = file;
                     } else {
                         alert('PDFファイルのみ対応しています。');
                     }

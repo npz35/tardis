@@ -40,8 +40,9 @@ Python Dependencies:
 | unstructured   | Apache 2.0      | <https://pypi.org/project/unstructured/0.18.15/>  |
 
 Japanese Font:
-- IPAex明朝 (IPA Font License Agreement v1.0)
+- IPAexゴシック, IPAex明朝 (IPA Font License Agreement v1.0)
     - Downloaded from <https://moji.or.jp/ipafont/ipafontdownload/>
+    - The font files ware placed in static/fonts/ipaexg.ttf and static/fonts/ipaexm.ttf
     - The license is described in IPA_Font_License_Agreement_v1.0.txt
 
 Translation API:

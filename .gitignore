@@ -3,6 +3,7 @@ outputs/
 uploads/*.txt
 uploads/*.pdf
 !uploads/sample.pdf
+!samples/sample.pdf
 uploads/tmp*
 test_outputs/*.pdf
 test_outputs/*.png

@@ -6,13 +6,17 @@
 import os
 
 class Config:
-    """Base configuration class"""
+    '''Base configuration class'''
 
     # Flask settings
     SECRET_KEY: str = os.environ.get('SECRET_KEY') or 'tardis-secret-key-change-in-production'
-    MAX_CONTENT_LENGTH: int = 16 * 1024 * 1024  # 16MB
 
-    REQUIRED_DISK_SPACE: int = 100 * 1024 * 1024 # 100MB
+    # File retention period
+    FILE_RETENTION_DAYS: int = 7
+
+    MAX_CONTENT_LENGTH: int = 20 * 1024 * 1024  # 20MB
+
+    REQUIRED_DISK_SPACE: int = 10 * 1024 * 1024 * 1024 # 10GB
 
     # Directory settings
     BASE_DIR: str = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
@@ -29,9 +33,6 @@ class Config:
     # Japanese font settings
     JAPANESE_FONT_PATH: str = os.environ.get('JAPANESE_FONT_PATH') or os.path.join(STATIC_FOLDER, 'fonts', 'ipaexm.ttf')
 
-    # File retention period (hours)
-    FILE_RETENTION_HOURS: int = 48
-
     # Logging settings
     LOG_LEVEL: str = os.environ.get('LOG_LEVEL') or 'INFO'
     LOG_FILE: str = os.path.join(BASE_DIR, 'logs', 'tardis.log')
@@ -39,7 +40,7 @@ class Config:
     # PDF processing settings
     PDF_DPI: int = 300  # Resolution
     PDF_TEXT_THRESHOLD: int = 5  # Threshold between text blocks (pixels)
-    MAX_PDF_PAGES: int = int(os.environ.get('MAX_PDF_PAGES', 1)) # Maximum number of pages to process
+    MAX_PDF_PAGES: int = int(os.environ.get('MAX_PDF_PAGES', 3)) # Maximum number of pages to process
 
     # Text extraction settings
     TEXT_EXTRACTION_METHOD: str = os.environ.get('TEXT_EXTRACTION_METHOD') or 'pdfplumber' # Method for text extraction (e.g., 'pdfminer', 'ocr', 'hybrid_pdfminer_pypdf')
@@ -47,24 +48,24 @@ class Config:
     # Font color highlighting settings
     ENABLE_FONT_COLOR_HIGHLIGHT: bool = os.environ.get('ENABLE_FONT_COLOR_HIGHLIGHT', 'False').lower() == 'true'
     FONT_COLOR_MAP: dict[str, tuple[float, float, float]] = {
-        "Helvetica": (0.0, 0.0, 0.0),              # Black
-        "CMMI10": (1.0, 0.0, 0.0),                 # Red
-        "SourceSansPro-Regular": (0.0, 0.0, 1.0),  # Blue
-        "SourceSansPro-Semibold": (0.0, 1.0, 0.0), # Green
-        "CMTI8": (1.0, 0.75, 0.0),
-        "CMBX10": (1.0, 0.5, 0.0),                 # Orange
-        "CMTT10": (1.0, 0.5, 0.5),
-        "CMR12": (0.75, 0.75, 0.0),                # Dark Yellow
-        "CMR8": (0.75, 0.0, 0.75),                 # Dark Magenta
-        "CMSY10": (0.75, 0.25, 0.25),              # Light Red
-        "CMR10": (0.5, 0.0, 0.5),                  # Purple
-        "CMEX10": (0.5, 0.5, 0.0),                 # Olive
-        "Martel-Regular": (0.5, 0.5, 0.5),
-        "CMSL10": (0.25, 0.25, 0.25),              # Dark Gray
-        "CMTI10": (0.25, 0.25, 0.75),              # Light Blue
-        "CMR17": (0.0, 0.75, 0.75),                # Dark Cyan
-        "CMBX12": (0.0, 0.5, 0.5),                 # Teal
-        "default": (0.0, 0.0, 0.0)                 # Default to black if font not in map
+        'Helvetica': (0.0, 0.0, 0.0),              # Black
+        'CMMI10': (1.0, 0.0, 0.0),                 # Red
+        'SourceSansPro-Regular': (0.0, 0.0, 1.0),  # Blue
+        'SourceSansPro-Semibold': (0.0, 1.0, 0.0), # Green
+        'CMTI8': (1.0, 0.75, 0.0),
+        'CMBX10': (1.0, 0.5, 0.0),                 # Orange
+        'CMTT10': (1.0, 0.5, 0.5),
+        'CMR12': (0.75, 0.75, 0.0),                # Dark Yellow
+        'CMR8': (0.75, 0.0, 0.75),                 # Dark Magenta
+        'CMSY10': (0.75, 0.25, 0.25),              # Light Red
+        'CMR10': (0.5, 0.0, 0.5),                  # Purple
+        'CMEX10': (0.5, 0.5, 0.0),                 # Olive
+        'Martel-Regular': (0.5, 0.5, 0.5),
+        'CMSL10': (0.25, 0.25, 0.25),              # Dark Gray
+        'CMTI10': (0.25, 0.25, 0.75),              # Light Blue
+        'CMR17': (0.0, 0.75, 0.75),                # Dark Cyan
+        'CMBX12': (0.0, 0.5, 0.5),                 # Teal
+        'default': (0.0, 0.0, 0.0)                 # Default to black if font not in map
     }
 
     # Translation settings
@@ -85,18 +86,19 @@ class Config:
     ADJUST_SLIGHTLY_FACTOR: float = 0.9
     VERTICAL_DIST_FACTOR: float = 2.0
     HORIZONTAL_DIST_FACTOR: float = 2.0
+    TEXT_BLOCK_VERTICAL_MARGIN: float = 3.0  # Vertical margin between text blocks (points)
 
     # Default font size for cases where font size cannot be extracted
     DEFAULT_FONT_SIZE: float = 12.0
     MIN_FONT_SIZE: float = 8.0 # Minimum font size for translated Japanese text
 
 class DevelopmentConfig(Config):
-    """Development environment settings"""
+    '''Development environment settings'''
     DEBUG: bool = False
     TESTING: bool = False
 
 class ProductionConfig(Config):
-    """Production environment settings"""
+    '''Production environment settings'''
     DEBUG: bool = False
     TESTING: bool = False
 
@@ -104,7 +106,7 @@ class ProductionConfig(Config):
     SECRET_KEY = os.environ.get('SECRET_KEY')  # Must be obtained from environment variable
 
 class TestingConfig(Config):
-    """Test environment settings"""
+    '''Test environment settings'''
     TESTING: bool = True
     # Upload folder for testing
     BASE_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))

@@ -7,7 +7,7 @@ import math
 import os
 import logging
 import uuid
-from typing import List, Dict, Any, Tuple
+from typing import Any
 import pdfplumber
 import io
 import tempfile
@@ -20,7 +20,8 @@ from reportlab.pdfbase.ttfonts import TTFont
 from PIL import Image as PILImage
 from reportlab.lib.colors import Color, red, black
 from pdfplumber.page import Page
-from app.data_model import Area, BBoxRL
+from app.config import Config
+from app.data_model import Area, BBox
 
 from app.pdf_area_separator import PdfAreaSeparator
 
@@ -33,12 +34,12 @@ class PdfFigureExtractor:
         self.output_folder = output_folder
         pdfmetrics.registerFont(TTFont('IPAexMincho', self.japanese_font_path))
         self.pdf_area_separator = PdfAreaSeparator(output_folder)
-        self.logger.debug("Function end: PdfFigureExtractor.__init__ (success)")
+        self.logger.debug('Function end: PdfFigureExtractor.__init__ (success)')
 
-    def _normalize_color(self, color_data: Any) -> Tuple[float, float, float]:
-        """
+    def _normalize_color(self, color_data: Any) -> tuple[float, float, float]:
+        '''
         pdfplumberから取得した色情報をReportLabで使えるRGB形式に変換する。
-        """
+        '''
         if color_data is None:
             return (0, 0, 0) # デフォルトは黒
         
@@ -49,20 +50,20 @@ class PdfFigureExtractor:
             # グレースケール値
             return (color_data, color_data, color_data)
         elif isinstance(color_data, str):
-            # 16進数文字列の場合（例: "000000"）
+            # 16進数文字列の場合（例: '000000'）
             if len(color_data) == 6:
                 r = int(color_data[0:2], 16) / 255.0
                 g = int(color_data[2:4], 16) / 255.0
                 b = int(color_data[4:6], 16) / 255.0
                 return (r, g, b)
         
-        self.logger.warning(f"Unknown color format: {color_data}. Defaulting to black.")
+        self.logger.warning(f'Unknown color format: {color_data}. Defaulting to black.')
         return (0, 0, 0) # 不明な場合は黒
 
-    def _extract_figure_as_image(self, page: Page, page_number: int, area_id: int, bbox: Tuple[float, float, float, float], unique_id: str) -> Dict[str, Any]:
-        """
+    def _extract_figure_as_image(self, page: Page, page_number: int, area_id: int, bbox: tuple[float, float, float, float], unique_id: str) -> dict[str, Any]:
+        '''
         指定されたバウンディングボックスの領域を画像として抽出し、その情報を返す
-        """
+        '''
         x0, y0, x1, y1 = bbox
         
         # 親ページのバウンディングボックスを取得する
@@ -74,19 +75,19 @@ class PdfFigureExtractor:
         clipped_x1 = min(x1, page_bbox[2])
         clipped_y1 = min(y1, page_bbox[3])
 
-        self.logger.debug(f"clipped_x0 = max({x0}, {page_bbox[0]})")
-        self.logger.debug(f"clipped_y0 = max({y0}, {page_bbox[1]})")
-        self.logger.debug(f"clipped_x1 = min({x1}, {page_bbox[2]})")
-        self.logger.debug(f"clipped_y1 = min({y1}, {page_bbox[3]})")
+        self.logger.debug(f'clipped_x0 = max({x0}, {page_bbox[0]})')
+        self.logger.debug(f'clipped_y0 = max({y0}, {page_bbox[1]})')
+        self.logger.debug(f'clipped_x1 = min({x1}, {page_bbox[2]})')
+        self.logger.debug(f'clipped_y1 = min({y1}, {page_bbox[3]})')
         
         # クリップされたバウンディングボックスが有効な範囲を持つか確認する
         if clipped_x1 <= clipped_x0 or clipped_y1 <= clipped_y0:
-            self.logger.warning(f"Clipped bbox is invalid, skipping image extraction: {bbox} -> ({clipped_x0}, {clipped_y0}, {clipped_x1}, {clipped_y1})")
+            self.logger.warning(f'Clipped bbox is invalid, skipping image extraction: {bbox} -> ({clipped_x0}, {clipped_y0}, {clipped_x1}, {clipped_y1})')
             return {
-                "page": page_number,
-                "bbox": bbox,
-                "figure_type": "empty_figure", # 無効な図表は空として扱う
-                "confidence": 0.0
+                'page_number': page_number,
+                'bbox': bbox,
+                'figure_type': 'empty_figure', # 無効な図表は空として扱う
+                'confidence': 0.0
             }
         
         abs_tol = 0.01 * max(page_bbox[2], page_bbox[3])
@@ -95,15 +96,15 @@ class PdfFigureExtractor:
         is_close_x1 = math.isclose(clipped_x1, page_bbox[2], abs_tol=abs_tol)
         is_close_y1 = math.isclose(clipped_y1, page_bbox[3], abs_tol=abs_tol)
         if is_close_x0 and is_close_y0 and is_close_x1 and is_close_y1:
-            self.logger.warning(f"Clipped bbox is too large, skipping image extraction")
+            self.logger.warning(f'Clipped bbox is too large, skipping image extraction')
             return {
-                "page": page_number,
-                "bbox": bbox,
-                "figure_type": "empty_figure", # 無効な図表は空として扱う
-                "confidence": 0.0
+                'page_number': page_number,
+                'bbox': bbox,
+                'figure_type': 'empty_figure', # 無効な図表は空として扱う
+                'confidence': 0.0
             }
 
-        self.logger.info(f"Crop image")
+        self.logger.info(f'Crop image')
         
         # cropped_page.to_image()はPIL.Imageオブジェクトを返す
         # ページ全体の画像を一度生成し、そこから指定されたbboxの領域を切り出す
@@ -140,43 +141,50 @@ class PdfFigureExtractor:
         figure_output_dir: str = os.path.join(self.output_folder, unique_id)
         os.makedirs(figure_output_dir, exist_ok=True) # unique_idディレクトリが存在しない場合は作成するのだ
 
-        img_filename = f"figure_page{page_number}_id{area_id}.png"
+        img_filename = f'figure_page{page_number}_id{area_id}.png'
         img_path = os.path.join(figure_output_dir, img_filename) # unique_idディレクトリ内に保存するのだ
         
         # 切り出した画像を直接ファイルに保存するのだ
         cropped_pil_image.save(img_path, format='PNG')
         
-        self.logger.debug(f"Extracted figure as image: {img_path} for bbox {bbox}")
+        self.logger.debug(f'Extracted figure as image: {img_path} for bbox {bbox}')
         return {
-            "page": page_number,
-            "bbox": (clipped_x0, clipped_y0, clipped_x1, clipped_y1), # クリップされたbboxを格納する
-            "figure_type": "image_figure",
-            "image_path": img_path,
-            "width": clipped_x1 - clipped_x0,
-            "height": clipped_y1 - clipped_y0,
-            "confidence": 1.0
+            'page_number': page_number,
+            'bbox': (clipped_x0, clipped_y0, clipped_x1, clipped_y1), # クリップされたbboxを格納する
+            'figure_type': 'image_figure',
+            'image_path': img_path,
+            'width': clipped_x1 - clipped_x0,
+            'height': clipped_y1 - clipped_y0,
+            'confidence': 1.0
         }
  
-    def extract_figures(self, pdf_path: str, current_unique_id: str) -> List[Dict[str, Any]]:
+    def extract_figures(self, pdf_path: str, current_unique_id: str) -> list[dict[str, Any]]:
         self.logger.debug(f"Function start: extract_figures(pdf_path='{pdf_path}', current_unique_id='{current_unique_id}')")
-        """
+        '''
         Extracts figures from a PDF using PdfAreaSeparator block information.
-        """
+        '''
         figures = []
-        page_and_areas = self.pdf_area_separator.extract_area_infos(pdf_path)
+        all_page_sizes = self.pdf_area_separator.extract_pazesizes(pdf_path)
+        all_page_areas = self.pdf_area_separator.extract_area_infos(pdf_path)
+
+        self.logger.debug(f'all_page_areas size: {len(all_page_areas)}')
 
         with pdfplumber.open(pdf_path) as pdf:
-            for page_num, page in enumerate(pdf.pages, 1):
-                if page_num not in page_and_areas:
-                    self.logger.info(f"No areas found on page {page_num}, adding as an empty page.")
+            for page_idx, page in enumerate(pdf.pages):
+                if Config.MAX_PDF_PAGES <= page_idx:
+                    break
+
+                page_width, page_height = all_page_sizes[page_idx]
+                if not all_page_areas[page_idx]:
+                    self.logger.info(f'No areas found on page {page_idx + 1}, adding as an empty page.')
                     figures.append({
-                        "page": page_num,
-                        "bbox": (0, 0, float(page.width), float(page.height)),
-                        "figure_type": "empty_page",
+                        'page_number': page_idx + 1,
+                        'bbox': (0, 0, page_width, page_height),
+                        'figure_type': 'empty_page',
                     })
                     continue
 
-                page_areas = page_and_areas[page_num]
+                page_areas = all_page_areas[page_idx]
                 page_figures_found = 0
 
                 for area_id, area in enumerate(page_areas):
@@ -184,41 +192,41 @@ class PdfFigureExtractor:
                     if area.color == red or area.color == black:
                         continue
                     
-                    # BBoxRLをpdfplumberのBBoxに変換するのだ
-                    # BBoxRLは左下原点、Y軸上向き
+                    # BBoxをpdfplumberのBBoxに変換するのだ
+                    # BBoxは左下原点、Y軸上向き
                     # pdfplumberのbboxも左下原点、Y軸上向き
-                    x0 = area.rect.x
-                    y0 = area.rect.y
-                    x1 = area.rect.x + area.rect.width
-                    y1 = area.rect.y + area.rect.height
+                    x0 = area.bbox.x0
+                    y0 = area.bbox.y0
+                    x1 = area.bbox.x0 + area.bbox.width()
+                    y1 = area.bbox.y0 + area.bbox.height()
                     bbox = (x0, y0, x1, y1)
                     
-                    figure_image_data = self._extract_figure_as_image(page, page_num, area_id, bbox, current_unique_id)
-                    if figure_image_data["figure_type"] == "empty_figure":
-                        self.logger.info(f"Figure is empty.")
+                    figure_image_data = self._extract_figure_as_image(page, page_idx + 1, area_id, bbox, current_unique_id)
+                    if figure_image_data['figure_type'] == 'empty_figure':
+                        self.logger.info(f'Figure is empty.')
                     else:
-                        self.logger.info(f"Append figure {figure_image_data}")
+                        self.logger.info(f'Append figure {figure_image_data}')
                         figures.append(figure_image_data)
                         page_figures_found += 1
 
                 if page_figures_found == 0:
-                    self.logger.info(f"No figures detected on page {page_num}, adding as an empty page.")
+                    self.logger.info(f'No figures detected on page {page_idx + 1}, adding as an empty page.')
                     figures.append({
-                        "page": page_num,
-                        "bbox": (0, 0, float(page.width), float(page.height)),
-                        "figure_type": "empty_page",
+                        'page_number': page_idx + 1,
+                        'bbox': (0, 0, page_width, page_height),
+                        'figure_type': 'empty_page',
                     })
 
-        self.logger.debug("Function end: extract_figures (success)")
+        self.logger.debug('Function end: extract_figures (success)')
         return figures
 
 
-    def create_figure_pdf(self, figures: List[Dict[str, Any]], output_path: str, original_pdf_path: str):
+    def create_figure_pdf(self, figures: list[dict[str, Any]], output_path: str, original_pdf_path: str):
         self.logger.debug(f"Function start: create_figure_pdf(output_path='{output_path}')")
         
         with pdfplumber.open(original_pdf_path) as pdf:
             if not pdf.pages:
-                self.logger.error(f"No pages found in {original_pdf_path}")
+                self.logger.error(f'No pages found in {original_pdf_path}')
                 # ページがない場合は空のPDFを作成して終了する
                 c = canvas.Canvas(output_path, pagesize=A4)
                 c.save()
@@ -230,9 +238,9 @@ class PdfFigureExtractor:
             c = canvas.Canvas(output_path, pagesize=page_size)
 
         # ページごとに図をグループ化するのだ
-        figures_by_page: Dict[int, List[Dict[str, Any]]] = {}
+        figures_by_page: dict[int, list[dict[str, Any]]] = {}
         for figure in figures:
-            page_num = figure["page"]
+            page_num = figure['page_number']
             if page_num not in figures_by_page:
                 figures_by_page[page_num] = []
             figures_by_page[page_num].append(figure)
@@ -244,13 +252,16 @@ class PdfFigureExtractor:
 
         # 1ページ目から最終ページまでループするのだ
         for page_number in range(1, total_pages + 1):
+            if Config.MAX_PDF_PAGES < page_number:
+                break
+
             if page_number in figures_by_page:
                 page_figures = figures_by_page[page_number]
                 for figure in page_figures:
-                    figure_type = figure["figure_type"]
+                    figure_type = figure['figure_type']
 
-                    if figure_type == "image_figure":
-                        x0, y0, x1, y1 = figure["bbox"]
+                    if figure_type == 'image_figure':
+                        x0, y0, x1, y1 = figure['bbox']
                         # ReportLabの座標系に変換するのだ
                         # pdfplumberとReportLabは同じ座標系なので、変換は不要なのだ
                         rl_x = x0
@@ -258,13 +269,13 @@ class PdfFigureExtractor:
                         rl_width = x1 - x0
                         rl_height = y1 - y0
 
-                        image_path = figure.get("image_path")
+                        image_path = figure.get('image_path')
                         if image_path and os.path.exists(image_path):
                             try:
-                                self.logger.info(f"Drawing extracted image figure: {image_path} at ({rl_x}, {rl_y}) with size ({rl_width}, {rl_height})")
+                                self.logger.info(f'Drawing extracted image figure: {image_path} at ({rl_x}, {rl_y}) with size ({rl_width}, {rl_height})')
                                 c.drawImage(image_path, rl_x, rl_y, width=rl_width, height=rl_height, preserveAspectRatio=True)
                             except Exception as e:
-                                self.logger.error(f"Error drawing image figure {image_path}: {e}")
+                                self.logger.error(f'Error drawing image figure {image_path}: {e}')
                         else:
                             self.logger.warning(f"Image path not found or does not exist for figure on page {page_number} with bbox {figure['bbox']}")
             
@@ -272,4 +283,4 @@ class PdfFigureExtractor:
             c.showPage()
 
         c.save()
-        self.logger.debug("Function end: create_figure_pdf (success)")
+        self.logger.debug('Function end: create_figure_pdf (success)')
